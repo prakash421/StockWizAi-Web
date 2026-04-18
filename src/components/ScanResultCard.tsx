@@ -142,9 +142,13 @@ export function ScanResultCard({ item, strategyFilter }: Props) {
         {/* Expand button */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-xs sm:text-sm text-indigo-600 font-medium hover:text-indigo-800"
+          className="flex items-center gap-1.5 text-xs sm:text-sm text-indigo-600 font-medium hover:text-indigo-800 mt-1"
         >
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {expanded ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          )}
           {expanded ? "Less details" : "More details"}
         </button>
       </div>
@@ -161,21 +165,23 @@ export function ScanResultCard({ item, strategyFilter }: Props) {
           {/* Signals */}
           {bullish_signals && bullish_signals.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-green-700 mb-0.5 flex items-center gap-1">
-                <TrendingUp size={12} /> Bullish
+              <p className="text-xs sm:text-sm font-semibold text-green-700 mb-0.5 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                Bullish
               </p>
               {bullish_signals.map((s, i) => (
-                <p key={i} className="text-xs text-green-700 ml-4">{s}</p>
+                <p key={i} className="text-xs sm:text-sm text-green-700 ml-5">{s}</p>
               ))}
             </div>
           )}
           {bearish_signals && bearish_signals.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-red-700 mb-0.5 flex items-center gap-1">
-                <TrendingDown size={12} /> Bearish
+              <p className="text-xs sm:text-sm font-semibold text-red-700 mb-0.5 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+                Bearish
               </p>
               {bearish_signals.map((s, i) => (
-                <p key={i} className="text-xs text-red-700 ml-4">{s}</p>
+                <p key={i} className="text-xs sm:text-sm text-red-700 ml-5">{s}</p>
               ))}
             </div>
           )}
