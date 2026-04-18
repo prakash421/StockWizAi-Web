@@ -14,7 +14,7 @@ export function NavBar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:static md:border-t-0 md:border-b z-50">
+    <nav className="sticky top-0 bg-white border-b border-gray-200 z-50 shadow-sm">
       <div className="max-w-5xl mx-auto flex justify-around md:justify-start md:gap-2 px-2">
         {/* Logo - desktop only */}
         <div className="hidden md:flex items-center mr-8 py-4">
