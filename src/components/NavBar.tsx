@@ -4,10 +4,10 @@ import { usePathname } from "next/navigation";
 import { Search, Briefcase, Brain, Bell } from "lucide-react";
 
 const tabs = [
-  { href: "/", icon: Search, label: "Scan" },
-  { href: "/portfolio", icon: Briefcase, label: "Portfolio" },
-  { href: "/ai-guru", icon: Brain, label: "AI Guru" },
-  { href: "/alerts", icon: Bell, label: "Alerts" },
+  { href: "/", icon: Search, label: "Scan", bg: "bg-indigo-100", activeBg: "bg-indigo-200", text: "text-indigo-700", hover: "hover:bg-indigo-50" },
+  { href: "/portfolio", icon: Briefcase, label: "Portfolio", bg: "bg-emerald-100", activeBg: "bg-emerald-200", text: "text-emerald-700", hover: "hover:bg-emerald-50" },
+  { href: "/ai-guru", icon: Brain, label: "AI Guru", bg: "bg-purple-100", activeBg: "bg-purple-200", text: "text-purple-700", hover: "hover:bg-purple-50" },
+  { href: "/alerts", icon: Bell, label: "Alerts", bg: "bg-amber-100", activeBg: "bg-amber-200", text: "text-amber-700", hover: "hover:bg-amber-50" },
 ];
 
 export function NavBar() {
@@ -26,10 +26,10 @@ export function NavBar() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-col md:flex-row items-center gap-1 md:gap-2.5 py-3 px-4 md:px-5 md:py-4 text-sm md:text-base font-semibold transition-colors ${
+              className={`flex flex-col md:flex-row items-center gap-1 md:gap-2.5 py-3 px-4 md:px-5 md:py-4 text-sm md:text-base font-semibold transition-all rounded-lg md:rounded-t-lg md:rounded-b-none ${
                 active
-                  ? "text-indigo-700 border-t-2 md:border-t-0 md:border-b-3 border-indigo-700 bg-indigo-50 md:rounded-t-lg"
-                  : "text-gray-500 hover:text-indigo-600 hover:bg-gray-50 md:rounded-t-lg"
+                  ? `${tab.activeBg} ${tab.text} border-b-3 md:border-b-3 border-current shadow-sm`
+                  : `${tab.bg} ${tab.text} ${tab.hover} opacity-80 hover:opacity-100`
               }`}
             >
               <tab.icon size={24} />
