@@ -1,4 +1,4 @@
-export const API_URL = "/api/v1";
+export const API_URL = "/proxy";
 
 export const DEFAULT_WATCHLIST = [
   "ALAB", "PLTR", "CRWD", "SNOW", "TSLA", "NFLX", "ARM", "MSFT", "META", "NVDA",
