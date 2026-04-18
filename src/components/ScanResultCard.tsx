@@ -11,7 +11,7 @@ interface Props {
 
 function Chip({ label, colorClass }: { label: string; colorClass: string }) {
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+    <span className={`inline-block px-2 py-0.5 rounded-full text-[0.65rem] sm:text-xs font-medium ${colorClass}`}>
       {label}
     </span>
   );
@@ -118,17 +118,17 @@ export function ScanResultCard({ item, strategyFilter }: Props) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Header */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <span className="text-lg font-bold">{ticker}</span>
-            <span className="text-gray-500 ml-2">${price.toFixed(2)}</span>
+            <span className="text-base sm:text-lg font-bold">{ticker}</span>
+            <span className="text-gray-500 ml-2 text-sm sm:text-base">${price.toFixed(2)}</span>
           </div>
           {rec && <Chip label={rec} colorClass={getRecColor(rec)} />}
         </div>
 
         {/* Metrics chips */}
-        <div className="flex flex-wrap gap-1.5 mb-2">
+        <div className="flex flex-wrap gap-1 sm:gap-1.5 mb-2">
           {rsi != null && <Chip label={`RSI ${rsi.toFixed(0)}`} colorClass={getRsiColor(rsi)} />}
           {beta != null && <Chip label={`β ${beta.toFixed(2)}`} colorClass={getBetaColor(beta)} />}
           {iv_rank && <Chip label={`IV ${iv_rank}`} colorClass={getIvColor(iv_rank)} />}
@@ -136,15 +136,15 @@ export function ScanResultCard({ item, strategyFilter }: Props) {
 
         {/* Summary */}
         {stock_summary && (
-          <p className="text-sm text-gray-600 mb-2 line-clamp-2">{stock_summary}</p>
+          <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">{stock_summary}</p>
         )}
 
         {/* Expand button */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-xs text-indigo-600 font-medium hover:text-indigo-800"
+          className="flex items-center gap-1 text-xs sm:text-sm text-indigo-600 font-medium hover:text-indigo-800"
         >
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {expanded ? <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
           {expanded ? "Less details" : "More details"}
         </button>
       </div>

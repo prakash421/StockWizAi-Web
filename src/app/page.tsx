@@ -128,11 +128,11 @@ export default function ScanPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <select
           value={selectedStrategy}
           onChange={(e) => setSelectedStrategy(e.target.value)}
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 sm:py-2.5 text-sm sm:text-base bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
         >
           {STRATEGY_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -140,17 +140,17 @@ export default function ScanPage() {
         </select>
         <button
           onClick={() => { setWatchlistText(watchlist.join(", ")); setShowWatchlist(true); }}
-          className="p-2.5 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+          className="p-2 sm:p-2.5 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
           title="Edit Watchlist"
         >
-          <ListChecks size={20} />
+          <ListChecks className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
         <button
           onClick={() => setShowTuner(true)}
-          className="p-2.5 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
+          className="p-2 sm:p-2.5 rounded-lg border border-gray-300 hover:bg-gray-100 transition"
           title="Tune Strategy"
         >
-          <Settings size={20} />
+          <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
       </div>
 
@@ -160,7 +160,7 @@ export default function ScanPage() {
         value={manualTicker}
         onChange={(e) => setManualTicker(e.target.value.toUpperCase())}
         placeholder="Ticker (e.g. TSLA, AMD)"
-        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 sm:py-3 text-sm sm:text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
         onKeyDown={(e) => e.key === "Enter" && handleScanStocks()}
       />
 
@@ -168,16 +168,16 @@ export default function ScanPage() {
       <button
         onClick={handleScanStocks}
         disabled={isLoading || !manualTicker.trim()}
-        className="w-full bg-indigo-600 text-white rounded-lg py-3 font-medium hover:bg-indigo-700 disabled:bg-indigo-400 transition flex items-center justify-center gap-2"
+        className="w-full bg-indigo-600 text-white rounded-lg py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-indigo-700 disabled:bg-indigo-400 transition flex items-center justify-center gap-2"
       >
         {isLoading && scanProgress.includes("Scanning") ? (
           <>
-            <Loader2 size={18} className="animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             {scanProgress}
           </>
         ) : (
           <>
-            <Search size={18} />
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
             Scan Stocks
           </>
         )}
@@ -187,16 +187,16 @@ export default function ScanPage() {
       <button
         onClick={handleScanWatchlist}
         disabled={isLoading}
-        className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium hover:bg-emerald-700 disabled:bg-emerald-400 transition flex items-center justify-center gap-2"
+        className="w-full bg-emerald-600 text-white rounded-lg py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-emerald-700 disabled:bg-emerald-400 transition flex items-center justify-center gap-2"
       >
         {isLoading && scanProgress.includes("Batch") ? (
           <>
-            <Loader2 size={18} className="animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             {scanProgress}
           </>
         ) : (
           <>
-            <ListChecks size={18} />
+            <ListChecks className="w-4 h-4 sm:w-5 sm:h-5" />
             Scan Watchlist ({watchlist.length} symbols)
           </>
         )}
@@ -206,28 +206,28 @@ export default function ScanPage() {
       <button
         onClick={handleScanTrending}
         disabled={isLoading}
-        className="w-full bg-amber-500 text-white rounded-lg py-3 font-medium hover:bg-amber-600 disabled:bg-amber-300 transition flex items-center justify-center gap-2"
+        className="w-full bg-amber-500 text-white rounded-lg py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-amber-600 disabled:bg-amber-300 transition flex items-center justify-center gap-2"
       >
         {isLoading && scanProgress.includes("trending") ? (
           <>
-            <Loader2 size={18} className="animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             {scanProgress}
           </>
         ) : (
           <>
-            <TrendingUp size={18} />
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
             Scan Trending Stocks
           </>
         )}
       </button>
 
-      <p className="text-xs text-gray-400 flex items-center gap-1">
-        <ListChecks size={14} /> Tap the list icon to edit watchlist symbols
+      <p className="text-xs sm:text-sm text-gray-400 flex items-center gap-1">
+        <ListChecks className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Tap the list icon to edit watchlist symbols
       </p>
 
       {/* Error */}
       {scanError && (
-        <div className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm ${
+        <div className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm ${
           scanResults.length > 0 ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-800"
         }`}>
           <AlertTriangle size={16} />

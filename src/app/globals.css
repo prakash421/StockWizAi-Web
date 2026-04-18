@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  /* Fluid base: 14px on 320px screens → 16px on 768px → 18px on 1280px+ */
+  font-size: clamp(14px, 0.75rem + 0.5vw, 18px);
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
