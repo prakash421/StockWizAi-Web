@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
-import { scanTickers } from "@/lib/api";
+import { scanTickers, scanTrending } from "@/lib/api";
 import { DEFAULT_WATCHLIST, STRATEGY_OPTIONS } from "@/lib/constants";
 import type { ScanResultItem } from "@/lib/types";
 import { ScanResultCard } from "@/components/ScanResultCard";
-import { Settings, ListChecks, Search, Loader2, AlertTriangle, X } from "lucide-react";
+import { Settings, ListChecks, Search, Loader2, AlertTriangle, X, TrendingUp } from "lucide-react";
 
 export default function ScanPage() {
   const [watchlist, setWatchlist] = useState<string[]>(() => {
@@ -153,6 +153,30 @@ export default function ScanPage() {
             {manualTicker.trim() ? "Scan Ticker" : "Scan Watchlist"}
           </>
         )}
+      </button>
+
+      {/* Scan Trending Button */}
+      <button
+        onClick={async () => {
+          setIsLoading(true);
+          setScanResults([]);
+          setScanError(null);
+          setScanProgress("Fetching trending stocks...");
+          try {
+            const results = await scanTrending();
+            setScanResults(results);
+          } catch (e: unknown) {
+            setScanError(e instanceof Error ? e.message : "Failed to fetch trending stocks.");
+          } finally {
+            setIsLoading(false);
+            setScanProgress("");
+          }
+        }}
+        disabled={isLoading}
+        className="w-full bg-amber-500 text-white rounded-lg py-3 font-medium hover:bg-amber-600 disabled:bg-amber-300 transition flex items-center justify-center gap-2"
+      >
+        <TrendingUp size={18} />
+        Scan Trending Stocks
       </button>
 
       {!manualTicker.trim() && (

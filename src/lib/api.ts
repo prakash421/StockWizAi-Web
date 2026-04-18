@@ -22,6 +22,11 @@ export async function scanTickers(
   return data;
 }
 
+export async function scanTrending(): Promise<ScanResultItem[]> {
+  const { data } = await api.get<ScanResultItem[]>("/scan/trending");
+  return data;
+}
+
 export async function getHealth(): Promise<HealthResponse> {
   const { data } = await api.get<HealthResponse>("/health");
   return data;
