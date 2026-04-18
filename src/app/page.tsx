@@ -36,49 +36,77 @@ export default function ScanPage() {
     }
   };
 
-  const handleScan = async () => {
+  const handleScanStocks = async () => {
+    if (!manualTicker.trim()) return;
     setIsLoading(true);
     setScanResults([]);
     setScanError(null);
-    setScanProgress("Connecting...");
-
     const strat = strategyParam(selectedStrategy);
     const delta = parseFloat(targetDelta) || undefined;
     const roc = parseFloat(minRoc) || undefined;
-
     try {
-      if (manualTicker.trim()) {
-        setScanProgress(`Scanning ${manualTicker}...`);
-        const results = await scanTickers(manualTicker.trim(), strat, delta, roc);
-        setScanResults(results);
-      } else {
-        const batches: string[][] = [];
-        for (let i = 0; i < watchlist.length; i += 5) {
-          batches.push(watchlist.slice(i, i + 5));
-        }
-        const combined: ScanResultItem[] = [];
-        let failed = 0;
-        for (let i = 0; i < batches.length; i++) {
-          setScanProgress(`Batch ${i + 1}/${batches.length} (${batches[i].length} symbols)...`);
-          try {
-            const results = await scanTickers(batches[i].join(","), strat, delta, roc);
-            combined.push(...results);
-          } catch {
-            failed++;
-          }
-        }
-        setScanResults(combined);
-        if (failed > 0 && combined.length > 0) {
-          setScanError(`${failed} of ${batches.length} batches failed. Showing partial results.`);
-        } else if (failed > 0 && combined.length === 0) {
-          setScanError("All batches failed. The server may be slow — please try again.");
+      setScanProgress(`Scanning ${manualTicker}...`);
+      const results = await scanTickers(manualTicker.trim(), strat, delta, roc);
+      setScanResults(results);
+      if (results.length === 0) setScanError("No opportunities found for this ticker.");
+    } catch (e: unknown) {
+      setScanError(e instanceof Error ? e.message : "Scan failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setScanProgress("");
+    }
+  };
+
+  const handleScanWatchlist = async () => {
+    setIsLoading(true);
+    setScanResults([]);
+    setScanError(null);
+    const strat = strategyParam(selectedStrategy);
+    const delta = parseFloat(targetDelta) || undefined;
+    const roc = parseFloat(minRoc) || undefined;
+    try {
+      const batches: string[][] = [];
+      for (let i = 0; i < watchlist.length; i += 5) {
+        batches.push(watchlist.slice(i, i + 5));
+      }
+      const combined: ScanResultItem[] = [];
+      let failed = 0;
+      for (let i = 0; i < batches.length; i++) {
+        setScanProgress(`Batch ${i + 1}/${batches.length} (${batches[i].length} symbols)...`);
+        try {
+          const results = await scanTickers(batches[i].join(","), strat, delta, roc);
+          combined.push(...results);
+        } catch {
+          failed++;
         }
       }
-      if (scanResults.length === 0 && !scanError) {
-        // Will be checked after state update
+      setScanResults(combined);
+      if (failed > 0 && combined.length > 0) {
+        setScanError(`${failed} of ${batches.length} batches failed. Showing partial results.`);
+      } else if (failed > 0 && combined.length === 0) {
+        setScanError("All batches failed. The server may be slow — please try again.");
+      } else if (combined.length === 0) {
+        setScanError("No opportunities found. Try adjusting tuner parameters or your watchlist.");
       }
     } catch (e: unknown) {
       setScanError(e instanceof Error ? e.message : "Scan failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setScanProgress("");
+    }
+  };
+
+  const handleScanTrending = async () => {
+    setIsLoading(true);
+    setScanResults([]);
+    setScanError(null);
+    setScanProgress("Fetching trending stocks...");
+    try {
+      const results = await scanTrending();
+      setScanResults(results);
+      if (results.length === 0) setScanError("No trending stocks found.");
+    } catch (e: unknown) {
+      setScanError(e instanceof Error ? e.message : "Failed to fetch trending stocks.");
     } finally {
       setIsLoading(false);
       setScanProgress("");
@@ -133,57 +161,69 @@ export default function ScanPage() {
         onChange={(e) => setManualTicker(e.target.value.toUpperCase())}
         placeholder="Ticker (e.g. TSLA, AMD)"
         className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        onKeyDown={(e) => e.key === "Enter" && handleScan()}
+        onKeyDown={(e) => e.key === "Enter" && handleScanStocks()}
       />
 
-      {/* Scan Button */}
+      {/* Scan Stocks Button */}
       <button
-        onClick={handleScan}
-        disabled={isLoading}
+        onClick={handleScanStocks}
+        disabled={isLoading || !manualTicker.trim()}
         className="w-full bg-indigo-600 text-white rounded-lg py-3 font-medium hover:bg-indigo-700 disabled:bg-indigo-400 transition flex items-center justify-center gap-2"
       >
-        {isLoading ? (
+        {isLoading && scanProgress.includes("Scanning") ? (
           <>
             <Loader2 size={18} className="animate-spin" />
-            {scanProgress || "Loading..."}
+            {scanProgress}
           </>
         ) : (
           <>
             <Search size={18} />
-            {manualTicker.trim() ? "Scan Ticker" : "Scan Watchlist"}
+            Scan Stocks
+          </>
+        )}
+      </button>
+
+      {/* Scan Watchlist Button */}
+      <button
+        onClick={handleScanWatchlist}
+        disabled={isLoading}
+        className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium hover:bg-emerald-700 disabled:bg-emerald-400 transition flex items-center justify-center gap-2"
+      >
+        {isLoading && scanProgress.includes("Batch") ? (
+          <>
+            <Loader2 size={18} className="animate-spin" />
+            {scanProgress}
+          </>
+        ) : (
+          <>
+            <ListChecks size={18} />
+            Scan Watchlist ({watchlist.length} symbols)
           </>
         )}
       </button>
 
       {/* Scan Trending Button */}
       <button
-        onClick={async () => {
-          setIsLoading(true);
-          setScanResults([]);
-          setScanError(null);
-          setScanProgress("Fetching trending stocks...");
-          try {
-            const results = await scanTrending();
-            setScanResults(results);
-          } catch (e: unknown) {
-            setScanError(e instanceof Error ? e.message : "Failed to fetch trending stocks.");
-          } finally {
-            setIsLoading(false);
-            setScanProgress("");
-          }
-        }}
+        onClick={handleScanTrending}
         disabled={isLoading}
         className="w-full bg-amber-500 text-white rounded-lg py-3 font-medium hover:bg-amber-600 disabled:bg-amber-300 transition flex items-center justify-center gap-2"
       >
-        <TrendingUp size={18} />
-        Scan Trending Stocks
+        {isLoading && scanProgress.includes("trending") ? (
+          <>
+            <Loader2 size={18} className="animate-spin" />
+            {scanProgress}
+          </>
+        ) : (
+          <>
+            <TrendingUp size={18} />
+            Scan Trending Stocks
+          </>
+        )}
       </button>
 
-      {!manualTicker.trim() && (
-        <p className="text-xs text-gray-400 flex items-center gap-1">
-          <ListChecks size={14} /> Tap the list icon to edit watchlist symbols
-        </p>
-      )}
+      <p className="text-xs text-gray-400 flex items-center gap-1">
+        <ListChecks size={14} /> Tap the list icon to edit watchlist symbols
+      </p>
 
       {/* Error */}
       {scanError && (
