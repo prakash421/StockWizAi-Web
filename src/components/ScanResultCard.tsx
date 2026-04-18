@@ -144,7 +144,7 @@ export function ScanResultCard({ item, strategyFilter }: Props) {
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-1 text-xs sm:text-sm text-indigo-600 font-medium hover:text-indigo-800"
         >
-          {expanded ? <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           {expanded ? "Less details" : "More details"}
         </button>
       </div>
