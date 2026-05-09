@@ -16,6 +16,7 @@ import {
   type RecommendationBucket,
 } from "@/lib/recommendation";
 import { lastScanContext } from "@/lib/scanContext";
+import { getAllStoredAiKeys } from "@/lib/aiKeys";
 import { Settings, ListChecks, Search, Loader2, AlertTriangle, X, TrendingUp, MessageCircle } from "lucide-react";
 
 type FilterChip = "All" | RecommendationBucket;
@@ -80,7 +81,7 @@ export default function ScanPage() {
       const resp = await fetch("/api/ai-cross-validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker }),
+        body: JSON.stringify({ ticker, keys: getAllStoredAiKeys() }),
       });
       const json = (await resp.json()) as
         | { validation: AiCrossValidation }

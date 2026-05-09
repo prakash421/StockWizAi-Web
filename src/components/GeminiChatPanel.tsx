@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { buildScanContext, useLastScanContext } from "@/lib/scanContext";
+import { getStoredAiKey } from "@/lib/aiKeys";
 
 interface ChatMessage {
   role: "user" | "model";
@@ -52,10 +53,16 @@ export function GeminiChatPanel({
     setSending(true);
     try {
       const systemContext = buildScanContext(includeScanContext);
+      const geminiKey = getStoredAiKey("gemini");
       const resp = await fetch("/api/gemini-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: historySnapshot, message: text, systemContext }),
+        body: JSON.stringify({
+          history: historySnapshot,
+          message: text,
+          systemContext,
+          geminiKey: geminiKey || undefined,
+        }),
       });
       const json = (await resp.json()) as { text?: string; error?: string };
       if (!resp.ok || json.error) {

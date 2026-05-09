@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { NavBar } from "@/components/NavBar";
+import { TopBar } from "@/components/TopBar";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "StockWiz AI",
@@ -11,12 +13,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="bg-gray-50 min-h-screen">
-        <div className="flex flex-col min-h-screen">
-          <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 pb-28">
-            {children}
-          </main>
-          <NavBar />
-        </div>
+        <Providers>
+          <div className="flex flex-col min-h-screen">
+            <TopBar />
+            <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 pb-28">
+              {children}
+            </main>
+            <NavBar />
+          </div>
+        </Providers>
       </body>
     </html>
   );

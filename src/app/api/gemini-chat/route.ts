@@ -18,19 +18,13 @@ interface Body {
   history?: ChatTurn[];
   message: string;
   systemContext?: string | null;
+  /** Optional user-provided Gemini key; overrides GEMINI_API_KEY when present. */
+  geminiKey?: string;
 }
 
 const MODEL = "gemini-1.5-flash-latest";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY not configured on the server." },
-      { status: 503 }
-    );
-  }
-
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -39,6 +33,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   if (!body.message || typeof body.message !== "string") {
     return NextResponse.json({ error: "Missing 'message'" }, { status: 400 });
+  }
+
+  const userKey = (body.geminiKey ?? "").trim();
+  const key = userKey || process.env.GEMINI_API_KEY;
+  if (!key) {
+    return NextResponse.json(
+      {
+        error:
+          "No Gemini key available. Add a Gemini key in the AI Keys dialog (top bar) or set GEMINI_API_KEY on the server.",
+      },
+      { status: 503 }
+    );
   }
 
   const contents: { role: string; parts: { text: string }[] }[] = [];

@@ -20,8 +20,18 @@ import { sanitizeReasoning, extractFirstJsonObject } from "@/lib/aiReasoning";
 
 export const runtime = "nodejs";
 
+interface UserKeys {
+  gemini?: string;
+  openai?: string;
+  anthropic?: string;
+  perplexity?: string;
+  grok?: string;
+}
+
 interface Body {
   ticker: string;
+  /** Optional user-provided keys; override server env vars when present. */
+  keys?: UserKeys;
 }
 
 const PROMPT = (ticker: string) => `You are evaluating ${ticker} for an options-selling retail trader. Answer ONLY with a single JSON object on one line, no commentary:
@@ -232,18 +242,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Missing 'ticker'" }, { status: 400 });
   }
 
+  const userKeys = body.keys ?? {};
+  const pick = (user: string | undefined, env: string | undefined): string | undefined => {
+    const u = (user ?? "").trim();
+    if (u) return u;
+    const e = (env ?? "").trim();
+    return e || undefined;
+  };
+
+  const geminiKey = pick(userKeys.gemini, process.env.GEMINI_API_KEY);
+  const openaiKey = pick(userKeys.openai, process.env.OPENAI_API_KEY);
+  const anthropicKey = pick(userKeys.anthropic, process.env.ANTHROPIC_API_KEY);
+  const perplexityKey = pick(userKeys.perplexity, process.env.PERPLEXITY_API_KEY);
+  const grokKey = pick(userKeys.grok, process.env.GROK_API_KEY);
+
   const calls: Promise<AiEngineResult>[] = [];
-  if (process.env.GEMINI_API_KEY) calls.push(callGemini(ticker, process.env.GEMINI_API_KEY));
-  if (process.env.OPENAI_API_KEY) calls.push(callOpenAI(ticker, process.env.OPENAI_API_KEY));
-  if (process.env.ANTHROPIC_API_KEY) calls.push(callClaude(ticker, process.env.ANTHROPIC_API_KEY));
-  if (process.env.PERPLEXITY_API_KEY) calls.push(callPerplexity(ticker, process.env.PERPLEXITY_API_KEY));
-  if (process.env.GROK_API_KEY) calls.push(callGrok(ticker, process.env.GROK_API_KEY));
+  if (geminiKey) calls.push(callGemini(ticker, geminiKey));
+  if (openaiKey) calls.push(callOpenAI(ticker, openaiKey));
+  if (anthropicKey) calls.push(callClaude(ticker, anthropicKey));
+  if (perplexityKey) calls.push(callPerplexity(ticker, perplexityKey));
+  if (grokKey) calls.push(callGrok(ticker, grokKey));
 
   if (calls.length === 0) {
     return NextResponse.json(
       {
         error:
-          "No AI engine keys configured on server. Set one or more of GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / PERPLEXITY_API_KEY / GROK_API_KEY.",
+          "No AI engine keys available. Add at least one key in the AI Keys dialog (top bar) or set one on the server (GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / PERPLEXITY_API_KEY / GROK_API_KEY).",
       },
       { status: 503 }
     );
