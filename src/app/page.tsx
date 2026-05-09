@@ -1,10 +1,24 @@
 "use client";
-import { useState } from "react";
-import { scanTickers, scanTrending } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { scanWatchlistParallel, scanTickers, scanTrending } from "@/lib/api";
 import { DEFAULT_WATCHLIST, STRATEGY_OPTIONS } from "@/lib/constants";
 import type { ScanResultItem } from "@/lib/types";
+import type { AiCrossValidation } from "@/lib/aiReasoning";
 import { ScanResultCard } from "@/components/ScanResultCard";
-import { Settings, ListChecks, Search, Loader2, AlertTriangle, X, TrendingUp } from "lucide-react";
+import { MetricLegendDialog } from "@/components/MetricLegendDialog";
+import { GeminiChatPanel } from "@/components/GeminiChatPanel";
+import {
+  recommendationBucket,
+  recommendationChipClass,
+  recommendationInactiveClass,
+  isBuyRated,
+  MAX_AUTO_AI_VALIDATIONS,
+  type RecommendationBucket,
+} from "@/lib/recommendation";
+import { lastScanContext } from "@/lib/scanContext";
+import { Settings, ListChecks, Search, Loader2, AlertTriangle, X, TrendingUp, MessageCircle } from "lucide-react";
+
+type FilterChip = "All" | RecommendationBucket;
 
 export default function ScanPage() {
   const [watchlist, setWatchlist] = useState<string[]>(() => {
@@ -25,8 +39,26 @@ export default function ScanPage() {
   const [showTuner, setShowTuner] = useState(false);
   const [showWatchlist, setShowWatchlist] = useState(false);
   const [watchlistText, setWatchlistText] = useState("");
+  const [showLegend, setShowLegend] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterChip>("All");
+  const [aiValidations, setAiValidations] = useState<Record<string, AiCrossValidation>>({});
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatIncludeContext, setChatIncludeContext] = useState(true);
 
-  const strategyParam = (s: string) => {
+  // Mirror state to LastScanContext so the chat overlay sees the same data.
+  useEffect(() => {
+    lastScanContext.setResults(scanResults);
+  }, [scanResults]);
+  useEffect(() => {
+    lastScanContext.setAiValidations(aiValidations);
+  }, [aiValidations]);
+  useEffect(() => {
+    lastScanContext.setActiveFilter(activeFilter === "All" ? null : activeFilter);
+  }, [activeFilter]);
+
+  const strategyParam = (s: string): string | undefined => {
     switch (s) {
       case "CSPs": return "csp";
       case "Diagonals": return "diagonal";
@@ -36,11 +68,63 @@ export default function ScanPage() {
     }
   };
 
+  const triggerAiValidation = async (ticker: string) => {
+    if (aiValidations[ticker] || aiLoading[ticker]) return;
+    setAiLoading((m) => ({ ...m, [ticker]: true }));
+    setAiErrors((m) => {
+      const copy = { ...m };
+      delete copy[ticker];
+      return copy;
+    });
+    try {
+      const resp = await fetch("/api/ai-cross-validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+      const json = (await resp.json()) as
+        | { validation: AiCrossValidation }
+        | { error: string };
+      if ("error" in json) {
+        setAiErrors((m) => ({ ...m, [ticker]: json.error }));
+      } else {
+        setAiValidations((m) => ({ ...m, [ticker]: json.validation }));
+      }
+    } catch (e) {
+      setAiErrors((m) => ({
+        ...m,
+        [ticker]: e instanceof Error ? e.message : "AI request failed",
+      }));
+    } finally {
+      setAiLoading((m) => {
+        const copy = { ...m };
+        delete copy[ticker];
+        return copy;
+      });
+    }
+  };
+
+  // Auto-trigger AI for buy-rated results, capped by MAX_AUTO_AI_VALIDATIONS.
+  useEffect(() => {
+    if (scanResults.length === 0) return;
+    const candidates = scanResults
+      .filter((r) => isBuyRated(r.stock_recommendation, r.overall))
+      .slice(0, MAX_AUTO_AI_VALIDATIONS);
+    for (const r of candidates) {
+      if (!aiValidations[r.ticker] && !aiLoading[r.ticker]) {
+        void triggerAiValidation(r.ticker);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanResults]);
+
   const handleScanStocks = async () => {
     if (!manualTicker.trim()) return;
     setIsLoading(true);
     setScanResults([]);
     setScanError(null);
+    setAiValidations({});
+    setAiErrors({});
     const strat = strategyParam(selectedStrategy);
     const delta = parseFloat(targetDelta) || undefined;
     const roc = parseFloat(minRoc) || undefined;
@@ -61,32 +145,24 @@ export default function ScanPage() {
     setIsLoading(true);
     setScanResults([]);
     setScanError(null);
+    setAiValidations({});
+    setAiErrors({});
     const strat = strategyParam(selectedStrategy);
-    const delta = parseFloat(targetDelta) || undefined;
-    const roc = parseFloat(minRoc) || undefined;
+    setScanProgress(`Starting watchlist scan...`);
     try {
-      const batches: string[][] = [];
-      for (let i = 0; i < watchlist.length; i += 5) {
-        batches.push(watchlist.slice(i, i + 5));
-      }
-      const combined: ScanResultItem[] = [];
-      let failed = 0;
-      for (let i = 0; i < batches.length; i++) {
-        setScanProgress(`Batch ${i + 1}/${batches.length} (${batches[i].length} symbols)...`);
-        try {
-          const results = await scanTickers(batches[i].join(","), strat, delta, roc);
-          combined.push(...results);
-        } catch {
-          failed++;
-        }
-      }
-      setScanResults(combined);
-      if (failed > 0 && combined.length > 0) {
-        setScanError(`${failed} of ${batches.length} batches failed. Showing partial results.`);
-      } else if (failed > 0 && combined.length === 0) {
-        setScanError("All batches failed. The server may be slow — please try again.");
-      } else if (combined.length === 0) {
-        setScanError("No opportunities found. Try adjusting tuner parameters or your watchlist.");
+      const combined = await scanWatchlistParallel(
+        watchlist,
+        strat,
+        (partial) => setScanResults(partial),
+        (p) =>
+          setScanProgress(
+            `Scanning ${p.scanned}/${p.total} symbols (${p.chunkCount} parallel jobs)...`
+          )
+      );
+      if (combined.length === 0) {
+        setScanError(
+          "No opportunities found. Try adjusting tuner parameters or your watchlist."
+        );
       }
     } catch (e: unknown) {
       setScanError(e instanceof Error ? e.message : "Scan failed. Please try again.");
@@ -100,6 +176,8 @@ export default function ScanPage() {
     setIsLoading(true);
     setScanResults([]);
     setScanError(null);
+    setAiValidations({});
+    setAiErrors({});
     setScanProgress("Fetching trending stocks...");
     try {
       const results = await scanTrending();
@@ -125,8 +203,30 @@ export default function ScanPage() {
     }
   };
 
+  const bucketCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of scanResults) {
+      const b = recommendationBucket(r.stock_recommendation, r.overall);
+      m[b] = (m[b] || 0) + 1;
+    }
+    return m;
+  }, [scanResults]);
+
+  const filterChips: FilterChip[] = useMemo(() => {
+    const order: FilterChip[] = ["All", "STRONG BUY", "BUY", "HOLD", "SELL", "AVOID", "OTHER"];
+    return order.filter((c) => c === "All" || (bucketCounts[c] ?? 0) > 0);
+  }, [bucketCounts]);
+
+  const visibleResults = useMemo(() => {
+    if (activeFilter === "All") return scanResults;
+    return scanResults.filter(
+      (r) => recommendationBucket(r.stock_recommendation, r.overall) === activeFilter
+    );
+  }, [scanResults, activeFilter]);
+
   return (
-    <div className="space-y-4">
+    <div className={`flex flex-col ${chatOpen ? "h-[calc(100vh-7rem)]" : ""}`}>
+      <div className={`space-y-4 ${chatOpen ? "flex-[0_0_40%] overflow-y-auto pr-1 min-h-0" : ""}`}>
       {/* Header */}
       <div className="flex items-center gap-2 sm:gap-3">
         <select
@@ -154,7 +254,6 @@ export default function ScanPage() {
         </button>
       </div>
 
-      {/* Manual Search */}
       <input
         type="text"
         value={manualTicker}
@@ -164,13 +263,12 @@ export default function ScanPage() {
         onKeyDown={(e) => e.key === "Enter" && handleScanStocks()}
       />
 
-      {/* Scan Stocks Button */}
       <button
         onClick={handleScanStocks}
-        disabled={isLoading || !manualTicker.trim()}
+        disabled={isLoading}
         className="w-full bg-indigo-600 text-white rounded-lg py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-indigo-700 disabled:bg-indigo-400 transition flex items-center justify-center gap-2"
       >
-        {isLoading && scanProgress.includes("Scanning") ? (
+        {isLoading && scanProgress.includes("Scanning") && !scanProgress.includes("symbols") ? (
           <>
             <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             {scanProgress}
@@ -183,13 +281,12 @@ export default function ScanPage() {
         )}
       </button>
 
-      {/* Scan Watchlist Button */}
       <button
         onClick={handleScanWatchlist}
         disabled={isLoading}
         className="w-full bg-emerald-600 text-white rounded-lg py-3 sm:py-3.5 text-sm sm:text-base font-medium hover:bg-emerald-700 disabled:bg-emerald-400 transition flex items-center justify-center gap-2"
       >
-        {isLoading && scanProgress.includes("Batch") ? (
+        {isLoading && (scanProgress.includes("symbols") || scanProgress.includes("Starting")) ? (
           <>
             <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             {scanProgress}
@@ -202,7 +299,6 @@ export default function ScanPage() {
         )}
       </button>
 
-      {/* Scan Trending Button */}
       <button
         onClick={handleScanTrending}
         disabled={isLoading}
@@ -225,7 +321,27 @@ export default function ScanPage() {
         <ListChecks className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Tap the list icon to edit watchlist symbols
       </p>
 
-      {/* Error */}
+      {/* Filter chips with counts */}
+      {scanResults.length > 0 && filterChips.length > 1 && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {filterChips.map((c) => {
+            const isActive = activeFilter === c;
+            const count = c === "All" ? scanResults.length : bucketCounts[c] ?? 0;
+            return (
+              <button
+                key={c}
+                onClick={() => setActiveFilter(c)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
+                  isActive ? recommendationChipClass(c) : recommendationInactiveClass(c)
+                }`}
+              >
+                {c} · {count}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {scanError && (
         <div className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm ${
           scanResults.length > 0 ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-800"
@@ -236,14 +352,21 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Results */}
       <div className="space-y-3">
-        {scanResults.map((item) => (
-          <ScanResultCard key={item.ticker} item={item} strategyFilter={selectedStrategy} />
+        {visibleResults.map((item) => (
+          <ScanResultCard
+            key={item.ticker}
+            item={item}
+            strategyFilter={selectedStrategy}
+            validation={aiValidations[item.ticker]}
+            validationLoading={!!aiLoading[item.ticker]}
+            validationError={aiErrors[item.ticker]}
+            onRunAi={() => triggerAiValidation(item.ticker)}
+            onShowLegend={() => setShowLegend(true)}
+          />
         ))}
       </div>
 
-      {/* Tuner Dialog */}
       {showTuner && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowTuner(false)}>
           <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -261,7 +384,6 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Watchlist Dialog */}
       {showWatchlist && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowWatchlist(false)}>
           <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -280,6 +402,58 @@ export default function ScanPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showLegend && <MetricLegendDialog onClose={() => setShowLegend(false)} />}
+      </div>
+
+      {/* Split-screen Gemini chat overlay (60% of vertical space) */}
+      {chatOpen && (
+        <div className="flex-[0_0_60%] mt-3 flex flex-col rounded-xl overflow-hidden border border-indigo-200 shadow-lg bg-white min-h-0">
+          <div className="flex items-center justify-between px-3 py-2 bg-indigo-600 text-white text-sm">
+            <span className="font-semibold flex items-center gap-2">
+              <MessageCircle size={16} /> Gemini · {scanResults.length} results
+            </span>
+            <div className="flex items-center gap-2.5 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={chatIncludeContext}
+                  onChange={(e) => setChatIncludeContext(e.target.checked)}
+                  className="scale-75"
+                />
+                Share context
+              </label>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="hover:bg-white/20 rounded p-1"
+                aria-label="Close chat"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <GeminiChatPanel
+              compact
+              showContextBanner={false}
+              includeScanContext={chatIncludeContext}
+              onIncludeScanContextChange={setChatIncludeContext}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Floating Gemini FAB on results */}
+      {scanResults.length > 0 && !chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-24 right-4 sm:right-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center z-40 transition"
+          aria-label="Open Gemini chat"
+          title="Ask Gemini about these results"
+        >
+          <MessageCircle size={24} />
+        </button>
       )}
     </div>
   );

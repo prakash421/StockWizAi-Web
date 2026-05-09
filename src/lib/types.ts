@@ -148,3 +148,20 @@ export interface BacktestResponse {
   summary?: string;
   details?: string;
 }
+
+// Async scan models — mirror AsyncScanResponse / AsyncScanStatus on Android
+export interface AsyncScanResponse {
+  status: string;
+  job_id: string;
+  total_tickers?: number;
+  strong_only?: boolean;
+  poll_url?: string;
+  tickers?: string[];
+}
+
+export interface AsyncScanStatus {
+  status: string;
+  progress?: string;
+  tickers_scanned?: number;
+  total_tickers?: number;
+}

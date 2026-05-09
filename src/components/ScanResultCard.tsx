@@ -1,12 +1,20 @@
 "use client";
 import { useState } from "react";
 import type { ScanResultItem, CspResult, DiagonalResult, VerticalResult, LongLeapsResult } from "@/lib/types";
-import { getRsiColor, getBetaColor, getIvColor, getRecColor, getBtColor, getRrColor, formatDate, parseNumber } from "@/lib/utils";
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, Plus } from "lucide-react";
+import { getRecColor, getBtColor, getRrColor, formatDate } from "@/lib/utils";
+import { metricColor } from "@/lib/metricColor";
+import type { AiCrossValidation } from "@/lib/aiReasoning";
+import { AiCrossValidationBadge } from "./AiCrossValidationBadge";
+import { Info, Sparkles, Loader2 } from "lucide-react";
 
 interface Props {
   item: ScanResultItem;
   strategyFilter: string;
+  validation?: AiCrossValidation;
+  validationLoading?: boolean;
+  validationError?: string | null;
+  onRunAi?: () => void;
+  onShowLegend?: () => void;
 }
 
 function Chip({ label, colorClass }: { label: string; colorClass: string }) {
@@ -96,7 +104,7 @@ function LeapRow({ l }: { l: LongLeapsResult }) {
   );
 }
 
-export function ScanResultCard({ item, strategyFilter }: Props) {
+export function ScanResultCard({ item, strategyFilter, validation, validationLoading, validationError, onRunAi, onShowLegend }: Props) {
   const [expanded, setExpanded] = useState(false);
   const { ticker, price, rsi, beta, iv_rank, stock_recommendation, stock_summary, overall,
     sma200, discount_from_high, bullish_signals, bearish_signals, levels,
@@ -127,12 +135,55 @@ export function ScanResultCard({ item, strategyFilter }: Props) {
           {rec && <Chip label={rec} colorClass={getRecColor(rec)} />}
         </div>
 
-        {/* Metrics chips */}
-        <div className="flex flex-wrap gap-1 sm:gap-1.5 mb-2">
-          {rsi != null && <Chip label={`RSI ${rsi.toFixed(0)}`} colorClass={getRsiColor(rsi)} />}
-          {beta != null && <Chip label={`β ${beta.toFixed(2)}`} colorClass={getBetaColor(beta)} />}
-          {iv_rank && <Chip label={`IV ${iv_rank}`} colorClass={getIvColor(iv_rank)} />}
+        {/* Metrics chips with options-seller-aligned semantic colors */}
+        <div className="flex flex-wrap gap-1 sm:gap-1.5 mb-2 items-center">
+          {rsi != null && (() => {
+            const s = metricColor("RSI", rsi);
+            return <Chip label={`RSI ${rsi.toFixed(0)} · ${s.hint}`} colorClass={s.className} />;
+          })()}
+          {beta != null && (() => {
+            const s = metricColor("BETA", beta);
+            return <Chip label={`β ${beta.toFixed(2)} · ${s.hint}`} colorClass={s.className} />;
+          })()}
+          {iv_rank != null && (() => {
+            const num = parseFloat(String(iv_rank).replace(/[^0-9.]/g, ""));
+            if (isNaN(num)) {
+              return <Chip label={`IV ${iv_rank}`} colorClass="bg-gray-100 text-gray-600" />;
+            }
+            const s = metricColor("IV", num);
+            return <Chip label={`IV ${iv_rank} · ${s.hint}`} colorClass={s.className} />;
+          })()}
+          {onShowLegend && (rsi != null || beta != null || iv_rank != null) && (
+            <button
+              onClick={onShowLegend}
+              className="text-gray-400 hover:text-gray-700"
+              aria-label="Color legend"
+              title="What do these colors mean?"
+            >
+              <Info size={14} />
+            </button>
+          )}
         </div>
+
+        {/* AI cross-validation badge or trigger */}
+        {validation ? (
+          <AiCrossValidationBadge validation={validation} />
+        ) : validationLoading ? (
+          <div className="mt-2 text-xs text-gray-500 flex items-center gap-1.5">
+            <Loader2 size={12} className="animate-spin" /> Running AI cross-validation...
+          </div>
+        ) : validationError ? (
+          <div className="mt-2 text-xs text-red-700 bg-red-50 px-2 py-1 rounded">
+            {validationError}
+          </div>
+        ) : onRunAi ? (
+          <button
+            onClick={onRunAi}
+            className="mt-2 text-xs text-indigo-700 hover:text-indigo-900 flex items-center gap-1 font-medium"
+          >
+            <Sparkles size={12} /> 🤖 Run AI cross-validation
+          </button>
+        ) : null}
 
         {/* Summary */}
         {stock_summary && (
