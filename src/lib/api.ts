@@ -8,6 +8,10 @@ import type {
   TradeEntry,
   AsyncScanResponse,
   AsyncScanStatus,
+  SectorRotationResponse,
+  RecommendationStats,
+  RecommendationItem,
+  LearningsResponse,
 } from "./types";
 import { chunkWatchlistForParallelScan } from "./watchlistChunking";
 
@@ -160,6 +164,42 @@ export async function getPositions(): Promise<HealthResponse> {
 
 export async function addPosition(trade: TradeEntry): Promise<{ id?: number }> {
   const { data } = await api.post("/portfolio/add", trade);
+  return data;
+}
+
+// ── Sector rotation ────────────────────────────────────────────────
+export async function getSectorRotation(
+  period?: string | null
+): Promise<SectorRotationResponse> {
+  const params: Record<string, string> = {};
+  if (period) params.period = period;
+  const { data } = await api.get<SectorRotationResponse>("/sector-rotation", { params });
+  return data;
+}
+
+// ── AI feedback / learnings ────────────────────────────────────────
+export async function getRecommendationStats(): Promise<RecommendationStats> {
+  const { data } = await api.get<RecommendationStats>("/recommendations/stats");
+  return data;
+}
+
+export async function getRecommendationHistory(
+  days = 90,
+  limit = 200,
+  ticker?: string | null
+): Promise<RecommendationItem[]> {
+  const params: Record<string, string | number> = { days, limit };
+  if (ticker) params.ticker = ticker;
+  const { data } = await api.get<RecommendationItem[] | { items?: RecommendationItem[] }>(
+    "/recommendations/history",
+    { params }
+  );
+  if (Array.isArray(data)) return data;
+  return data.items ?? [];
+}
+
+export async function getLearnings(): Promise<LearningsResponse> {
+  const { data } = await api.get<LearningsResponse>("/recommendations/learnings");
   return data;
 }
 

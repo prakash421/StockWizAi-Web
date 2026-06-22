@@ -165,3 +165,109 @@ export interface AsyncScanStatus {
   tickers_scanned?: number;
   total_tickers?: number;
 }
+
+// ── Sector rotation (mirrors SectorRotationResponse on Android) ──────
+export interface SectorMultiWindow {
+  r1w?: number | null;
+  r2w?: number | null;
+  r4w?: number | null;
+  accel_1v4?: number | null;
+  accel_2v4?: number | null;
+}
+
+export interface EarlyRotator {
+  sector: string;
+  direction: string; // "early_in" | "early_out"
+  r1w?: number | null;
+  r4w?: number | null;
+}
+
+export interface SectorData {
+  sector: string;
+  etf: string;
+  return_period: number;
+  return_recent: number;
+  volume_change_pct: number;
+  money_flow: string; // "inflow" | "outflow" | "neutral"
+  acceleration: number;
+  rank: number;
+  early_signal?: string | null;
+  multi_window?: SectorMultiWindow | null;
+}
+
+export interface SectorRotationResponse {
+  sectors: SectorData[];
+  rotation_signals?: string[] | null;
+  period?: string | null;
+  top_sectors?: string[] | null;
+  bottom_sectors?: string[] | null;
+  early_rotators?: EarlyRotator[] | null;
+}
+
+// ── AI feedback loop / Learnings (mirrors NewScreens.kt) ─────────────
+export interface OutcomeEntry {
+  week: number;
+  status: string; // "winning" | "losing" | "neutral"
+  price_change_pct?: number | null;
+  eval_at?: string | null;
+}
+
+export interface RecommendationItem {
+  rec_id: string;
+  source?: string | null;
+  ticker: string;
+  strategy?: string | null;
+  action?: string | null;
+  entry_price?: number | null;
+  verdict?: string | null;
+  strike?: number | null;
+  created_at?: string | null;
+  scan_date?: string | null;
+  closed?: boolean;
+  eval_count?: number | null;
+  final_status?: string | null;
+  outcome_history?: OutcomeEntry[] | null;
+  stock_summary?: string | null;
+}
+
+export interface StrategyStats {
+  winning: number;
+  losing: number;
+  neutral: number;
+  total: number;
+  win_rate: number;
+}
+
+export interface RecommendationStats {
+  enabled?: boolean;
+  horizon_days?: number | null;
+  total_recommendations?: number | null;
+  by_strategy?: Record<string, StrategyStats> | null;
+  by_verdict?: Record<string, StrategyStats> | null;
+}
+
+export interface VerdictBaseline {
+  strategy: string;
+  verdict: string;
+  winning: number;
+  total: number;
+  win_rate: number;
+}
+
+export interface SignalStat {
+  strategy?: string | null;
+  signal: string;
+  winning?: number;
+  losing?: number;
+  total: number;
+  win_rate: number;
+}
+
+export interface LearningsResponse {
+  enabled?: boolean;
+  as_of?: string | null;
+  verdict_baselines?: VerdictBaseline[] | null;
+  top_winning_signals?: SignalStat[] | null;
+  top_losing_signals?: SignalStat[] | null;
+  suggested_adjustments?: string[] | null;
+}
