@@ -38,8 +38,8 @@ function CspRow({ csp }: { csp: CspResult }) {
   return (
     <div className="flex items-center justify-between text-sm py-1">
       <div>
-        <span className="font-medium">${csp.strike}</span>
-        <span className="text-gray-500 ml-1">→ ${csp.premium.toFixed(2)}</span>
+        <span className="font-bold text-gray-900">${csp.strike}</span>
+        <span className="text-gray-600 ml-1.5">prem <span className="font-semibold text-gray-900">${csp.premium.toFixed(2)}</span></span>
         {csp.delta && <span className="text-gray-400 ml-1">Δ{csp.delta}</span>}
       </div>
       <div className="flex gap-1 items-center">
@@ -55,13 +55,14 @@ function DiagRow({ d }: { d: DiagonalResult }) {
   const longLeg = d.long_leg || d.long || d.long_strike || "?";
   const shortLeg = d.short_leg || d.short || d.short_strike || "?";
   const yieldVal = d.yield || d.yield_ratio;
+  const debit = d.net_debt ?? d.net_debit ?? 0;
   return (
     <div className="flex items-center justify-between text-sm py-1">
       <div>
-        <span className="font-medium">{longLeg}</span>
+        <span className="font-bold text-gray-900">{longLeg}</span>
         <span className="text-gray-400 mx-1">/</span>
-        <span className="font-medium">{shortLeg}</span>
-        <span className="text-gray-500 ml-1">Net ${(d.net_debt ?? d.net_debit ?? 0).toFixed(2)}</span>
+        <span className="font-bold text-gray-900">{shortLeg}</span>
+        <span className="text-gray-600 ml-1.5">debit <span className="font-semibold text-gray-900">${debit.toFixed(2)}</span></span>
       </div>
       <div className="flex gap-1 items-center">
         {yieldVal && <Chip label={`Yield ${yieldVal}`} colorClass="text-indigo-700 bg-indigo-50" />}
@@ -76,8 +77,8 @@ function VertRow({ v }: { v: VerticalResult }) {
   return (
     <div className="flex items-center justify-between text-sm py-1">
       <div>
-        <span className="font-medium">{v.strikes}</span>
-        <span className="text-gray-500 ml-1">Net ${v.net_debit.toFixed(2)}</span>
+        <span className="font-bold text-gray-900">{v.strikes}</span>
+        <span className="text-gray-600 ml-1.5">debit <span className="font-semibold text-gray-900">${v.net_debit.toFixed(2)}</span></span>
       </div>
       <div className="flex gap-1 items-center">
         {v.bt && <Chip label={`BT ${v.bt}`} colorClass={getBtColor(v.bt)} />}
@@ -91,8 +92,8 @@ function LeapRow({ l }: { l: LongLeapsResult }) {
   return (
     <div className="flex items-center justify-between text-sm py-1">
       <div>
-        <span className="font-medium">${l.strike}</span>
-        <span className="text-gray-500 ml-1">@ ${l.premium.toFixed(2)}</span>
+        <span className="font-bold text-gray-900">${l.strike}</span>
+        <span className="text-gray-600 ml-1.5">prem <span className="font-semibold text-gray-900">${l.premium.toFixed(2)}</span></span>
         {l.leverage && <span className="text-gray-400 ml-1">{l.leverage}x</span>}
       </div>
       <div className="flex gap-1 items-center">
@@ -129,7 +130,7 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
       <div className="p-3 sm:p-4">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <span className="text-base sm:text-lg font-bold">{ticker}</span>
+            <span className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight">{ticker}</span>
             <span className="text-gray-500 ml-2 text-sm sm:text-base">${price.toFixed(2)}</span>
           </div>
           {rec && <Chip label={rec} colorClass={getRecColor(rec)} />}
