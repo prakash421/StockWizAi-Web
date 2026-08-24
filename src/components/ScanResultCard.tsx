@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { ScanResultItem, CspResult, DiagonalResult, VerticalResult, LongLeapsResult, PutCreditSpreadResult } from "@/lib/types";
 import { getRecColor, getBtColor, getRrColor, formatDate } from "@/lib/utils";
 import { metricColor } from "@/lib/metricColor";
+import { earningsChip, dailyChangeClass } from "@/lib/scanFormat";
 import type { AiCrossValidation } from "@/lib/aiReasoning";
 import { AiCrossValidationBadge } from "./AiCrossValidationBadge";
 import { Info, Sparkles, Loader2 } from "lucide-react";
@@ -128,7 +129,8 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
   const [expanded, setExpanded] = useState(false);
   const { ticker, price, rsi, beta, iv_rank, stock_recommendation, stock_summary, overall,
     sma200, discount_from_high, bullish_signals, bearish_signals, levels,
-    csps, diagonals, verticals, long_leaps, put_credit_spreads } = item;
+    csps, diagonals, verticals, long_leaps, put_credit_spreads,
+    company_name, sector, daily_change_pct, next_earnings_date, analyst_target } = item;
 
   const showCsp = strategyFilter === "All" || strategyFilter === "CSPs";
   const showPcs = strategyFilter === "All" || strategyFilter === "PCSs";
@@ -144,14 +146,34 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
   const showSupport = lvl?.support != null && fmt(lvl.support) !== fmt(lvl.swing_low_60d) && fmt(lvl.support) !== fmt(lvl.stop_loss);
   const showResist = lvl?.resistance != null && fmt(lvl.resistance) !== fmt(lvl.swing_high_60d) && fmt(lvl.resistance) !== fmt(lvl.target);
 
+  // Days until next earnings — used to flag an "Earnings in Nd" warning
+  // chip so users don't unknowingly open a spread through an earnings event.
+  const earnings = earningsChip(next_earnings_date);
+  const changeClass = dailyChangeClass(daily_change_pct);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Header */}
       <div className="p-3 sm:p-4">
         <div className="flex items-center justify-between mb-2">
-          <div>
-            <span className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight">{ticker}</span>
-            <span className="text-gray-500 ml-2 text-sm sm:text-base">${price.toFixed(2)}</span>
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight">{ticker}</span>
+              <span className="text-gray-500 text-sm sm:text-base">${price.toFixed(2)}</span>
+              {daily_change_pct != null && changeClass && (
+                <span className={`text-xs sm:text-sm font-semibold ${changeClass}`}>
+                  {daily_change_pct > 0 ? "+" : ""}
+                  {daily_change_pct.toFixed(2)}%
+                </span>
+              )}
+            </div>
+            {(company_name || sector) && (
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
+                {company_name}
+                {company_name && sector ? " · " : ""}
+                {sector}
+              </p>
+            )}
           </div>
           {rec && <Chip label={rec} colorClass={getRecColor(rec)} />}
         </div>
@@ -174,6 +196,9 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
             const s = metricColor("IV", num);
             return <Chip label={`IV ${iv_rank} · ${s.hint}`} colorClass={s.className} />;
           })()}
+          {earnings && (
+            <Chip label={earnings.label} colorClass={earnings.className} />
+          )}
           {onShowLegend && (rsi != null || beta != null || iv_rank != null) && (
             <button
               onClick={onShowLegend}
@@ -255,6 +280,58 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
               {bearish_signals.map((s, i) => (
                 <p key={i} className="text-xs sm:text-sm text-red-700 ml-5">{s}</p>
               ))}
+            </div>
+          )}
+
+          {/* Analyst Target */}
+          {analyst_target && (analyst_target.mean != null || analyst_target.consensus) && (
+            <div className="bg-indigo-50 rounded-lg p-3">
+              <h4 className="text-xs font-semibold text-indigo-700 uppercase mb-1">Analyst Target</h4>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                {analyst_target.mean != null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Mean</span>
+                    <span className="font-medium">${analyst_target.mean.toFixed(2)}</span>
+                  </div>
+                )}
+                {analyst_target.upside_pct != null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Upside</span>
+                    <span
+                      className={`font-medium ${
+                        analyst_target.upside_pct > 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {analyst_target.upside_pct > 0 ? "+" : ""}
+                      {analyst_target.upside_pct.toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+                {analyst_target.low != null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Low</span>
+                    <span className="font-medium">${analyst_target.low.toFixed(2)}</span>
+                  </div>
+                )}
+                {analyst_target.high != null && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">High</span>
+                    <span className="font-medium">${analyst_target.high.toFixed(2)}</span>
+                  </div>
+                )}
+                {analyst_target.consensus && (
+                  <div className="flex justify-between col-span-2">
+                    <span className="text-gray-500">Consensus</span>
+                    <span className="font-medium">{analyst_target.consensus}</span>
+                  </div>
+                )}
+                {analyst_target.num_analysts != null && (
+                  <div className="flex justify-between col-span-2">
+                    <span className="text-gray-500">Analysts</span>
+                    <span className="font-medium">{analyst_target.num_analysts}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

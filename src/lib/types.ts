@@ -72,6 +72,17 @@ export interface StockLevels {
   risk_note?: string | null;
 }
 
+// Analyst consensus block returned when Tradier / yfinance has data.
+// Mirrors res["analyst_target"] shape in main.py ~line 1610.
+export interface AnalystTarget {
+  mean?: number | null;
+  low?: number | null;
+  high?: number | null;
+  num_analysts?: number | null;
+  upside_pct?: number | null;
+  consensus?: string | null;
+}
+
 export interface ScanResultItem {
   ticker: string;
   price: number;
@@ -91,6 +102,12 @@ export interface ScanResultItem {
   bullish_signals?: string[] | null;
   bearish_signals?: string[] | null;
   levels?: StockLevels | null;
+  // Phase-2 additive fields (all optional, tolerate legacy backends).
+  company_name?: string | null;
+  sector?: string | null;
+  daily_change_pct?: number | null;
+  next_earnings_date?: string | null;
+  analyst_target?: AnalystTarget | null;
 }
 
 export interface ActivePosition {
