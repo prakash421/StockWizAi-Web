@@ -2,13 +2,47 @@
 import { useState } from "react";
 import Image from "next/image";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { KeyRound, LogIn, LogOut, User as UserIcon } from "lucide-react";
+import { KeyRound, LogIn, LogOut, User as UserIcon, AlertTriangle, X } from "lucide-react";
 import { AiKeysDialog } from "./AiKeysDialog";
 
 export function TopBar() {
   const { data: session, status } = useSession();
   const [keysOpen, setKeysOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
+
+  // Wrap signIn so the "spinner forever / nothing happens" failure mode
+  // becomes a visible error. next-auth's signIn returns undefined when it
+  // redirects; when the /api/auth/signin/google POST 500s (missing envs on
+  // Vercel is the usual cause) we catch it and hit /api/auth/diagnose to
+  // tell the user exactly what's misconfigured.
+  const handleSignIn = async () => {
+    setSignInError(null);
+    setSigningIn(true);
+    try {
+      const res = await signIn("google", { redirect: true });
+      if (res && res.error) {
+        throw new Error(res.error);
+      }
+    } catch (e) {
+      const baseMsg =
+        e instanceof Error ? e.message : "Sign-in failed unexpectedly.";
+      let detail = "";
+      try {
+        const diag = await fetch("/api/auth/diagnose").then((r) => r.json());
+        if (diag && Array.isArray(diag.missing) && diag.missing.length > 0) {
+          detail = ` Server is missing env vars: ${diag.missing.join(", ")}.`;
+        } else if (diag && diag.hint) {
+          detail = ` ${diag.hint}`;
+        }
+      } catch {
+        // diagnose is best-effort
+      }
+      setSignInError(baseMsg + detail);
+      setSigningIn(false);
+    }
+  };
 
   return (
     <>
@@ -78,16 +112,32 @@ export function TopBar() {
               </div>
             ) : (
               <button
-                onClick={() => void signIn("google")}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs sm:text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                onClick={() => void handleSignIn()}
+                disabled={signingIn}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs sm:text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-400"
                 title="Sign in with Google"
               >
                 <LogIn size={14} />
-                <span>Sign in</span>
+                <span>{signingIn ? "Signing in…" : "Sign in"}</span>
               </button>
             )}
           </div>
         </div>
+        {signInError && (
+          <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pb-2">
+            <div className="flex items-start gap-2 px-3 py-2 bg-red-50 text-red-800 rounded-lg text-xs sm:text-sm">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <span className="flex-1 break-words">{signInError}</span>
+              <button
+                onClick={() => setSignInError(null)}
+                aria-label="Dismiss"
+                className="flex-shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
       <AiKeysDialog open={keysOpen} onClose={() => setKeysOpen(false)} />
     </>
