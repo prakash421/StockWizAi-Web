@@ -33,9 +33,16 @@ describe("Put Credit Spread (PCS) porting", () => {
   });
 
   test("AI_GURU_STRATEGIES does NOT include Put Credit Spread yet (deferred)", () => {
-    // Guard: adding PCS to AI Guru requires validating the /backtest
-    // payload shape for a two-leg PCS. Until that verification is done,
-    // omitting it prevents a broken form -> failed backtest UX.
+    // Guard: adding PCS to AI Guru requires backend work first. Verified
+    // 2026-08 that /api/v1/backtest only accepts strategy in
+    //   ("stock","csp","sell_call","vertical","diagonal","long_leaps")
+    // (see main.py L3826) and that engine._bt_vertical is written for a
+    // debit spread (net_debit / action="buy" — see main.py L2625). Mapping
+    // "Put Credit Spread" to strategy=vertical would show incorrect max_profit,
+    // max_loss and verdict wording for a credit-spread payload. Blocker:
+    // backend needs a proper _bt_pcs (or vertical needs a credit/debit
+    // branch keyed off is_call/is_buy). Until then, omitting PCS from the
+    // AI Guru form prevents a misleading backtest UX.
     expect(AI_GURU_STRATEGIES).not.toContain("Put Credit Spread");
   });
 
