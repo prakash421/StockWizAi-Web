@@ -12,6 +12,7 @@ import type {
   RecommendationStats,
   RecommendationItem,
   LearningsResponse,
+  EnhancedTrendingResponse,
 } from "./types";
 import { chunkWatchlistForParallelScan } from "./watchlistChunking";
 
@@ -37,6 +38,22 @@ export async function scanTickers(
 
 export async function scanTrending(): Promise<ScanResultItem[]> {
   const { data } = await api.get<ScanResultItem[]>("/scan/trending");
+  return data;
+}
+
+/**
+ * Enhanced trending: joins the live trending scan with the last 14 days
+ * of trending snapshots. When strongOnly is true (default) the backend
+ * filters to STRONG BUY recommendations only; when false you get the
+ * full result set decorated with trending_badge / trending_history.
+ */
+export async function scanTrendingEnhanced(
+  strongOnly: boolean = true,
+  limit: number = 10,
+): Promise<EnhancedTrendingResponse> {
+  const { data } = await api.get<EnhancedTrendingResponse>("/scan/trending/enhanced", {
+    params: { strong_only: strongOnly, limit },
+  });
   return data;
 }
 

@@ -83,6 +83,20 @@ export interface AnalystTarget {
   consensus?: string | null;
 }
 
+// Trending history block returned only by /scan/trending/enhanced.
+// Mirrors r["trending_history"] shape in main.py ~line 4530.
+export interface TrendingHistory {
+  appearances: number;
+  consecutive_days: number;
+}
+
+export interface EnhancedTrendingResponse {
+  results: ScanResultItem[];
+  trending_tickers: string[];
+  history_window_days?: number;
+  snapshot_taken?: boolean;
+}
+
 export interface ScanResultItem {
   ticker: string;
   price: number;
@@ -108,6 +122,9 @@ export interface ScanResultItem {
   daily_change_pct?: number | null;
   next_earnings_date?: string | null;
   analyst_target?: AnalystTarget | null;
+  // Phase-3 additive fields (only populated by /scan/trending/enhanced).
+  trending_badge?: string | null;
+  trending_history?: TrendingHistory | null;
 }
 
 export interface ActivePosition {

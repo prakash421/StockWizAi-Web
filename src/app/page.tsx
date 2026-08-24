@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { scanWatchlistParallel, scanTickers, scanTrending } from "@/lib/api";
+import { scanWatchlistParallel, scanTickers, scanTrendingEnhanced } from "@/lib/api";
 import { DEFAULT_WATCHLIST, STRATEGY_OPTIONS } from "@/lib/constants";
 import type { ScanResultItem } from "@/lib/types";
 import type { AiCrossValidation } from "@/lib/aiReasoning";
@@ -47,6 +47,11 @@ export default function ScanPage() {
   const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
   const [chatOpen, setChatOpen] = useState(false);
   const [chatIncludeContext, setChatIncludeContext] = useState(true);
+  const [trendingStrongOnly, setTrendingStrongOnly] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = localStorage.getItem("trendingStrongOnly");
+    return v == null ? true : v === "1";
+  });
 
   // Mirror state to LastScanContext so the chat overlay sees the same data.
   useEffect(() => {
@@ -180,11 +185,21 @@ export default function ScanPage() {
     setScanError(null);
     setAiValidations({});
     setAiErrors({});
-    setScanProgress("Fetching trending stocks...");
+    setScanProgress(
+      trendingStrongOnly
+        ? "Fetching trending stocks (Strong Buy only)..."
+        : "Fetching trending stocks...",
+    );
     try {
-      const results = await scanTrending();
-      setScanResults(results);
-      if (results.length === 0) setScanError("No trending stocks found.");
+      const resp = await scanTrendingEnhanced(trendingStrongOnly);
+      setScanResults(resp.results);
+      if (resp.results.length === 0) {
+        setScanError(
+          trendingStrongOnly
+            ? "No Strong-Buy trending stocks found. Try unchecking 'Strong buys only'."
+            : "No trending stocks found.",
+        );
+      }
     } catch (e: unknown) {
       setScanError(e instanceof Error ? e.message : "Failed to fetch trending stocks.");
     } finally {
@@ -318,6 +333,25 @@ export default function ScanPage() {
           </>
         )}
       </button>
+
+      <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 select-none cursor-pointer">
+        <input
+          type="checkbox"
+          checked={trendingStrongOnly}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setTrendingStrongOnly(next);
+            try {
+              localStorage.setItem("trendingStrongOnly", next ? "1" : "0");
+            } catch {
+              /* localStorage disabled — ignore */
+            }
+          }}
+          className="w-4 h-4 accent-amber-500"
+          aria-label="Filter trending scan to Strong Buy only"
+        />
+        Strong buys only (recommended)
+      </label>
 
       <p className="text-xs sm:text-sm text-gray-400 flex items-center gap-1">
         <ListChecks className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Tap the list icon to edit watchlist symbols

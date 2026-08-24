@@ -130,7 +130,8 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
   const { ticker, price, rsi, beta, iv_rank, stock_recommendation, stock_summary, overall,
     sma200, discount_from_high, bullish_signals, bearish_signals, levels,
     csps, diagonals, verticals, long_leaps, put_credit_spreads,
-    company_name, sector, daily_change_pct, next_earnings_date, analyst_target } = item;
+    company_name, sector, daily_change_pct, next_earnings_date, analyst_target,
+    trending_badge, trending_history } = item;
 
   const showCsp = strategyFilter === "All" || strategyFilter === "CSPs";
   const showPcs = strategyFilter === "All" || strategyFilter === "PCSs";
@@ -177,6 +178,20 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
           </div>
           {rec && <Chip label={rec} colorClass={getRecColor(rec)} />}
         </div>
+
+        {/* Trending badge from /scan/trending/enhanced (e.g. "🔥 Day 7") */}
+        {(trending_badge || trending_history) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            {trending_badge && (
+              <Chip label={trending_badge} colorClass="text-amber-800 bg-amber-100" />
+            )}
+            {trending_history && (
+              <span className="text-[11px] text-gray-500">
+                {trending_history.consecutive_days}d streak · {trending_history.appearances}/14d
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Metrics chips with options-seller-aligned semantic colors */}
         <div className="flex flex-wrap gap-1 sm:gap-1.5 mb-2 items-center">
@@ -357,6 +372,9 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
                 )}
                 {lvl.swing_high_60d != null && (
                   <div className="flex justify-between"><span className="text-gray-500">Swing High 60d</span><span className="font-medium">{fmt(lvl.swing_high_60d)}</span></div>
+                )}
+                {lvl.high_52w != null && (
+                  <div className="flex justify-between"><span className="text-gray-500">52w High</span><span className="font-medium">{fmt(lvl.high_52w)}</span></div>
                 )}
                 {lvl.atr != null && (
                   <div className="flex justify-between"><span className="text-gray-500">ATR</span><span className="font-medium">${lvl.atr.toFixed(2)}</span></div>
