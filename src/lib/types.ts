@@ -40,6 +40,25 @@ export interface LongLeapsResult {
   bt: string | null;
 }
 
+// Put Credit Spread (bull put spread) — defined-risk bullish alternative to CSP.
+// Mirrors PutCreditSpreadResult in MainActivity.kt.
+export interface PutCreditSpreadResult {
+  short_strike: number;
+  long_strike: number;
+  width?: number | null;
+  credit: number;
+  max_loss: number;
+  capital?: number | null;
+  delta?: number | null;
+  bt: string | null;
+  roc: string | null;
+  roc_on_risk?: string | null;
+  expiry?: string | null;
+  stop_loss?: number | null;
+  target?: number | null;
+  risk_note?: string | null;
+}
+
 export interface StockLevels {
   atr?: number | null;
   support?: number | null;
@@ -62,6 +81,7 @@ export interface ScanResultItem {
   diagonals?: DiagonalResult[] | null;
   verticals?: VerticalResult[] | null;
   long_leaps?: LongLeapsResult[] | null;
+  put_credit_spreads?: PutCreditSpreadResult[] | null;
   iv_rank?: string | null;
   discount_from_high?: string | null;
   sma200?: number | null;

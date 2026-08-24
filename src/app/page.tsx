@@ -62,6 +62,7 @@ export default function ScanPage() {
   const strategyParam = (s: string): string | undefined => {
     switch (s) {
       case "CSPs": return "csp";
+      case "PCSs": return "pcs";
       case "Diagonals": return "diagonal";
       case "Verticals": return "vertical";
       case "Long LEAPS": return "long_leaps";

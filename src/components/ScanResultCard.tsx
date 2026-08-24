@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { ScanResultItem, CspResult, DiagonalResult, VerticalResult, LongLeapsResult } from "@/lib/types";
+import type { ScanResultItem, CspResult, DiagonalResult, VerticalResult, LongLeapsResult, PutCreditSpreadResult } from "@/lib/types";
 import { getRecColor, getBtColor, getRrColor, formatDate } from "@/lib/utils";
 import { metricColor } from "@/lib/metricColor";
 import type { AiCrossValidation } from "@/lib/aiReasoning";
@@ -105,13 +105,33 @@ function LeapRow({ l }: { l: LongLeapsResult }) {
   );
 }
 
+function PcsRow({ p }: { p: PutCreditSpreadResult }) {
+  return (
+    <div className="flex items-center justify-between text-sm py-1">
+      <div>
+        <span className="font-bold text-gray-900">${p.short_strike}</span>
+        <span className="text-gray-400 mx-1">/</span>
+        <span className="font-bold text-gray-900">${p.long_strike}</span>
+        <span className="text-gray-600 ml-1.5">credit <span className="font-semibold text-gray-900">${p.credit.toFixed(2)}</span></span>
+        {p.delta != null && <span className="text-gray-400 ml-1">Δ{p.delta.toFixed(2)}</span>}
+      </div>
+      <div className="flex gap-1 items-center">
+        {p.roc && <Chip label={`ROC/mo ${p.roc}`} colorClass="text-indigo-700 bg-indigo-50" />}
+        {p.bt && <Chip label={`BT ${p.bt}`} colorClass={getBtColor(p.bt)} />}
+        {p.expiry && <span className="text-xs text-gray-400">{formatDate(p.expiry)}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function ScanResultCard({ item, strategyFilter, validation, validationLoading, validationError, onRunAi, onShowLegend }: Props) {
   const [expanded, setExpanded] = useState(false);
   const { ticker, price, rsi, beta, iv_rank, stock_recommendation, stock_summary, overall,
     sma200, discount_from_high, bullish_signals, bearish_signals, levels,
-    csps, diagonals, verticals, long_leaps } = item;
+    csps, diagonals, verticals, long_leaps, put_credit_spreads } = item;
 
   const showCsp = strategyFilter === "All" || strategyFilter === "CSPs";
+  const showPcs = strategyFilter === "All" || strategyFilter === "PCSs";
   const showDiag = strategyFilter === "All" || strategyFilter === "Diagonals";
   const showVert = strategyFilter === "All" || strategyFilter === "Verticals";
   const showLeaps = strategyFilter === "All" || strategyFilter === "Long LEAPS";
@@ -279,6 +299,11 @@ export function ScanResultCard({ item, strategyFilter, validation, validationLoa
           {showCsp && csps && csps.length > 0 && (
             <StrategySection title="Cash-Secured Puts">
               {csps.map((c, i) => <CspRow key={i} csp={c} />)}
+            </StrategySection>
+          )}
+          {showPcs && put_credit_spreads && put_credit_spreads.length > 0 && (
+            <StrategySection title="Put Credit Spreads">
+              {put_credit_spreads.map((p, i) => <PcsRow key={i} p={p} />)}
             </StrategySection>
           )}
           {showDiag && diagonals && diagonals.length > 0 && (
