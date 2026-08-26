@@ -236,3 +236,47 @@ export async function runBacktest(req: BacktestRequest): Promise<BacktestRespons
   const { data } = await api.post<BacktestResponse>("/backtest", req);
   return data;
 }
+
+// ── Server-side watchlist (per-user; requires X-User-Id) ─────────────
+export interface ServerWatchlist {
+  tickers: string[];
+  is_default?: boolean;
+  count?: number;
+}
+
+export async function getServerWatchlist(userId: string): Promise<ServerWatchlist> {
+  const { data } = await api.get<ServerWatchlist>("/watchlist", {
+    headers: { "X-User-Id": userId },
+  });
+  return data;
+}
+
+export async function putServerWatchlist(
+  userId: string,
+  tickers: string[]
+): Promise<ServerWatchlist> {
+  const { data } = await api.put<ServerWatchlist>(
+    "/watchlist",
+    { tickers },
+    { headers: { "X-User-Id": userId } }
+  );
+  return data;
+}
+
+// ── Cancel all in-flight scans (for a fresh manual scan) ─────────────
+export interface CancelAllResponse {
+  status: string;
+  cancelled: string[];
+  count: number;
+}
+
+export async function cancelAllScans(): Promise<CancelAllResponse> {
+  const { data } = await api.post<CancelAllResponse>("/scan/cancel_all");
+  return data;
+}
+
+// ── Portfolio edit (mirrors Android editPosition) ────────────────────
+export async function editPosition(id: number, trade: TradeEntry): Promise<void> {
+  await api.put(`/portfolio/update/${id}`, trade);
+}
+

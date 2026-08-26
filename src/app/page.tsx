@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { scanWatchlistParallel, scanTickers, scanTrendingEnhanced } from "@/lib/api";
-import { DEFAULT_WATCHLIST, STRATEGY_OPTIONS } from "@/lib/constants";
+import { STRATEGY_OPTIONS } from "@/lib/constants";
+import { useWatchlistSync } from "@/lib/useWatchlistSync";
 import type { ScanResultItem } from "@/lib/types";
 import type { AiCrossValidation } from "@/lib/aiReasoning";
 import { ScanResultCard } from "@/components/ScanResultCard";
@@ -22,13 +23,7 @@ import { Settings, ListChecks, Search, Loader2, AlertTriangle, X, TrendingUp, Me
 type FilterChip = "All" | RecommendationBucket;
 
 export default function ScanPage() {
-  const [watchlist, setWatchlist] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("watchlist");
-      return saved ? saved.split(",").filter(Boolean) : DEFAULT_WATCHLIST;
-    }
-    return DEFAULT_WATCHLIST;
-  });
+  const { watchlist, setWatchlist, syncError: watchlistSyncError } = useWatchlistSync();
   const [selectedStrategy, setSelectedStrategy] = useState("All");
   const [manualTicker, setManualTicker] = useState("");
   const [targetDelta, setTargetDelta] = useState("-0.25");
@@ -215,7 +210,6 @@ export default function ScanPage() {
       .filter(Boolean);
     if (newList.length > 0) {
       setWatchlist(newList);
-      localStorage.setItem("watchlist", newList.join(","));
       setShowWatchlist(false);
     }
   };
@@ -425,6 +419,11 @@ export default function ScanPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold">Edit Watchlist</h2>
             <p className="text-sm text-gray-500">Enter ticker symbols separated by commas or spaces.</p>
+            {watchlistSyncError && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                Server sync warning: {watchlistSyncError}. Your changes are saved locally and will retry.
+              </p>
+            )}
             <textarea
               value={watchlistText}
               onChange={(e) => setWatchlistText(e.target.value.toUpperCase())}
