@@ -184,23 +184,34 @@ export interface TradeEntry {
 
 export interface BacktestRequest {
   ticker: string;
-  strike: number;
-  strike_sell?: number;
-  expiry: string;
-  expiry_sell?: string;
-  premium: number;
-  strategy: string;
-  is_call: number;
-  is_buy: number;
+  strategy: string;              // "csp" | "sell_call" | "vertical" | "diagonal" | "long_leaps"
+  action: string;                // "buy" | "sell"
+  strike?: number | null;
+  strike_sell?: number | null;
+  expiry?: string | null;
+  expiry_sell?: string | null;
+  premium?: number | null;
+}
+
+export interface BacktestLearning {
+  enabled?: boolean;
+  applied?: boolean;
+  original_verdict?: string | null;
+  adjusted_verdict?: string | null;
+  adjustment_reason?: string | null;
 }
 
 export interface BacktestResponse {
-  win_rate?: string;
-  avg_return?: string;
-  max_loss?: string;
-  recommendation?: string;
-  summary?: string;
-  details?: string;
+  verdict: string;               // STRONG BUY | BUY | HOLD | AVOID | SELL | STRONG SELL | INCONCLUSIVE
+  confidence: string;            // Very High | High | Medium | Low | None
+  summary: string;
+  backtest_score?: string | null;
+  price?: number | null;
+  rsi?: number | null;
+  signals?: string[] | null;
+  warnings?: string[] | null;
+  levels?: StockLevels | null;
+  learning?: BacktestLearning | null;
 }
 
 // Async scan models — mirror AsyncScanResponse / AsyncScanStatus on Android
