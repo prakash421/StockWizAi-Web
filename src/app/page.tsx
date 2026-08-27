@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { scanWatchlistParallel, scanTickers, scanTrendingEnhanced } from "@/lib/api";
+import { scanWatchlistParallel, scanTickers, scanTrendingEnhanced, cancelAllScans } from "@/lib/api";
 import { STRATEGY_OPTIONS } from "@/lib/constants";
 import { useWatchlistSync } from "@/lib/useWatchlistSync";
 import type { ScanResultItem } from "@/lib/types";
@@ -327,6 +327,23 @@ export default function ScanPage() {
           </>
         )}
       </button>
+
+      {isLoading && (
+        <button
+          onClick={async () => {
+            try {
+              await cancelAllScans();
+              setScanError("Cancel request sent. In-flight scans will stop shortly.");
+            } catch (e) {
+              setScanError(e instanceof Error ? e.message : "Failed to cancel scan.");
+            }
+          }}
+          className="w-full border border-red-300 text-red-700 rounded-lg py-2 text-xs sm:text-sm font-medium hover:bg-red-50 transition flex items-center justify-center gap-2"
+        >
+          <X className="w-4 h-4" />
+          Cancel active scan
+        </button>
+      )}
 
       <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 select-none cursor-pointer">
         <input

@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { getPositions, addPosition, closePosition, removePosition } from "@/lib/api";
+import { getPositions, addPosition, closePosition, removePosition, editPosition } from "@/lib/api";
 import type { ActivePosition, ClosedPosition, TradeEntry, HealthResponse } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { Loader2, Plus, X, Trash2, DollarSign, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, X, Trash2, DollarSign, AlertTriangle, Pencil } from "lucide-react";
 
 export default function PortfolioPage() {
   const [data, setData] = useState<HealthResponse | null>(null);
@@ -11,6 +11,7 @@ export default function PortfolioPage() {
   const [error, setError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showClose, setShowClose] = useState<ActivePosition | null>(null);
+  const [showEdit, setShowEdit] = useState<ActivePosition | null>(null);
   const [tab, setTab] = useState<"active" | "closed">("active");
 
   const load = useCallback(async () => {
@@ -100,6 +101,12 @@ export default function PortfolioPage() {
                   <DollarSign size={12} /> Close
                 </button>
                 {p.id != null && (
+                  <button onClick={() => setShowEdit(p)}
+                    className="flex items-center gap-1 px-3 py-1 text-xs border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-50">
+                    <Pencil size={12} /> Edit
+                  </button>
+                )}
+                {p.id != null && (
                   <button onClick={async () => { await removePosition(p.id!); load(); }}
                     className="flex items-center gap-1 px-3 py-1 text-xs border border-red-300 text-red-700 rounded-lg hover:bg-red-50">
                     <Trash2 size={12} /> Remove
@@ -145,6 +152,21 @@ export default function PortfolioPage() {
           load();
         }
       }} />}
+
+      {/* Edit Position Dialog */}
+      {showEdit && (
+        <EditPositionDialog
+          position={showEdit}
+          onClose={() => setShowEdit(null)}
+          onSave={async (t) => {
+            if (showEdit.id != null) {
+              await editPosition(showEdit.id, t);
+              setShowEdit(null);
+              load();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -206,3 +228,113 @@ function ClosePositionDialog({ position, onClose, onConfirm }: { position: Activ
     </div>
   );
 }
+
+function EditPositionDialog({
+  position,
+  onClose,
+  onSave,
+}: {
+  position: ActivePosition;
+  onClose: () => void;
+  onSave: (t: TradeEntry) => void;
+}) {
+  const [form, setForm] = useState({
+    strategy: position.strategy,
+    strike: String(position.strike),
+    contracts: String(position.contracts),
+    expiry: position.expiry,
+    entry_premium: position.entry_premium.toFixed(2),
+  });
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const strikeNum = parseFloat(form.strike);
+  const contractsNum = parseInt(form.contracts, 10);
+  const premiumNum = parseFloat(form.entry_premium);
+  const canSave =
+    !Number.isNaN(strikeNum) &&
+    !Number.isNaN(contractsNum) &&
+    !Number.isNaN(premiumNum) &&
+    !!form.expiry.trim() &&
+    !!form.strategy.trim();
+
+  const save = () => {
+    if (!canSave) return;
+    const strat = form.strategy;
+    const t: TradeEntry = {
+      ticker: position.ticker,
+      strike: strikeNum,
+      expiry: form.expiry,
+      trigger_price: 0,
+      entry_premium: premiumNum,
+      contracts: contractsNum,
+      strategy: strat,
+      is_call: /call|leaps/i.test(strat) ? 1 : 0,
+      is_buy: 0,
+    };
+    onSave(t);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl p-6 w-full max-w-sm space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold">Edit: {position.ticker}</h2>
+          <button onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <label className="block text-xs text-gray-500">Strategy</label>
+        <input
+          value={form.strategy}
+          onChange={(e) => set("strategy", e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-gray-500">Strike</label>
+            <input
+              value={form.strike}
+              onChange={(e) => set("strike", e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500">Contracts</label>
+            <input
+              value={form.contracts}
+              onChange={(e) => set("contracts", e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+        <label className="block text-xs text-gray-500">Expiry (YYYY-MM-DD)</label>
+        <input
+          type="date"
+          value={form.expiry}
+          onChange={(e) => set("expiry", e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+        />
+        <label className="block text-xs text-gray-500">Entry Premium</label>
+        <input
+          value={form.entry_premium}
+          onChange={(e) => set("entry_premium", e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+        />
+        <button
+          onClick={save}
+          disabled={!canSave}
+          className="w-full bg-indigo-600 text-white rounded-lg py-2 font-medium disabled:bg-indigo-300"
+        >
+          Save Changes
+        </button>
+      </div>
+    </div>
+  );
+}
+
