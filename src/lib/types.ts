@@ -293,6 +293,7 @@ export interface RecommendationItem {
   final_status?: string | null;
   outcome_history?: OutcomeEntry[] | null;
   stock_summary?: string | null;
+  match_detail?: Record<string, unknown> | null;
 }
 
 export interface StrategyStats {

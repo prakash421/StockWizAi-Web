@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Loader2, AlertTriangle, GraduationCap, Trophy, AlertCircle, Lightbulb } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, AlertTriangle, GraduationCap, Trophy, AlertCircle, Lightbulb, X } from "lucide-react";
 import {
   getRecommendationStats,
   getRecommendationHistory,
@@ -14,8 +14,21 @@ import type {
   SignalStat,
   OutcomeEntry,
 } from "@/lib/types";
+import {
+  deriveLocalLearnings,
+  filterByStrategy,
+  filterByStrategyAndVerdict,
+  filterByVerdict,
+  filterBySignal,
+} from "@/lib/localLearnings";
 
 type Tab = "stats" | "signals" | "history";
+
+type DrillDown = {
+  title: string;
+  subtitle?: string;
+  items: RecommendationItem[];
+};
 
 function winColor(pct: number): string {
   if (pct >= 70) return "text-emerald-700 bg-emerald-50";
@@ -26,13 +39,33 @@ function winColor(pct: number): string {
 function WinRateCard({
   label,
   s,
+  onClick,
 }: {
   label: string;
   s: { winning: number; losing: number; total: number; win_rate: number };
+  onClick?: () => void;
 }) {
   const cls = winColor(s.win_rate);
+  const clickable = typeof onClick === "function";
   return (
-    <div className="flex items-center justify-between bg-white border border-gray-100 rounded-lg px-3 py-2">
+    <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={`flex items-center justify-between bg-white border border-gray-100 rounded-lg px-3 py-2 ${
+        clickable ? "cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/40 transition" : ""
+      }`}
+    >
       <div className="min-w-0">
         <p className="text-sm font-semibold truncate">{label}</p>
         <p className="text-xs text-gray-500">
@@ -46,7 +79,15 @@ function WinRateCard({
   );
 }
 
-function StatsTab({ stats }: { stats: RecommendationStats | null }) {
+function StatsTab({
+  stats,
+  history,
+  onDrill,
+}: {
+  stats: RecommendationStats | null;
+  history: RecommendationItem[];
+  onDrill: (d: DrillDown) => void;
+}) {
   if (!stats) {
     return <p className="text-sm text-gray-500 text-center py-8">No stats available yet</p>;
   }
@@ -74,9 +115,21 @@ function StatsTab({ stats }: { stats: RecommendationStats | null }) {
       {byStrategy.length > 0 && (
         <section>
           <h2 className="text-sm font-bold mb-2">Win Rate by Strategy</h2>
+          <p className="text-[11px] text-gray-500 mb-2">Tap a row to see contributing recommendations.</p>
           <div className="space-y-2">
             {byStrategy.map(([k, s]: [string, StrategyStats]) => (
-              <WinRateCard key={k} label={k.toUpperCase()} s={s} />
+              <WinRateCard
+                key={k}
+                label={k.toUpperCase()}
+                s={s}
+                onClick={() =>
+                  onDrill({
+                    title: `Strategy · ${k.toUpperCase()}`,
+                    subtitle: `${s.win_rate.toFixed(1)}% win-rate over ${s.total} recs`,
+                    items: filterByStrategy(history, k),
+                  })
+                }
+              />
             ))}
           </div>
         </section>
@@ -85,9 +138,21 @@ function StatsTab({ stats }: { stats: RecommendationStats | null }) {
       {byVerdict.length > 0 && (
         <section>
           <h2 className="text-sm font-bold mb-2">Win Rate by Verdict</h2>
+          <p className="text-[11px] text-gray-500 mb-2">Tap a row to see contributing recommendations.</p>
           <div className="space-y-2">
             {byVerdict.map(([k, s]: [string, StrategyStats]) => (
-              <WinRateCard key={k} label={k} s={s} />
+              <WinRateCard
+                key={k}
+                label={k}
+                s={s}
+                onClick={() =>
+                  onDrill({
+                    title: `Verdict · ${k}`,
+                    subtitle: `${s.win_rate.toFixed(1)}% win-rate over ${s.total} recs`,
+                    items: filterByVerdict(history, k),
+                  })
+                }
+              />
             ))}
           </div>
         </section>
@@ -99,16 +164,36 @@ function StatsTab({ stats }: { stats: RecommendationStats | null }) {
 function SignalRow({
   sig,
   variant,
+  onClick,
 }: {
   sig: SignalStat;
   variant: "win" | "lose";
+  onClick?: () => void;
 }) {
   const accent =
     variant === "win"
       ? "bg-emerald-50 border-emerald-100 text-emerald-700"
       : "bg-rose-50 border-rose-100 text-rose-700";
+  const clickable = typeof onClick === "function";
   return (
-    <div className={`flex items-center justify-between border rounded-md px-3 py-2 ${accent}`}>
+    <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
+      className={`flex items-center justify-between border rounded-md px-3 py-2 ${accent} ${
+        clickable ? "cursor-pointer hover:brightness-95 transition" : ""
+      }`}
+    >
       <div className="min-w-0">
         <p className="text-xs font-medium text-gray-800 truncate">{sig.signal}</p>
         {sig.strategy && (
@@ -122,7 +207,15 @@ function SignalRow({
   );
 }
 
-function SignalsTab({ learnings }: { learnings: LearningsResponse | null }) {
+function SignalsTab({
+  learnings,
+  history,
+  onDrill,
+}: {
+  learnings: LearningsResponse | null;
+  history: RecommendationItem[];
+  onDrill: (d: DrillDown) => void;
+}) {
   if (!learnings) {
     return <p className="text-sm text-gray-500 text-center py-8">No learnings yet</p>;
   }
@@ -131,6 +224,7 @@ function SignalsTab({ learnings }: { learnings: LearningsResponse | null }) {
       {learnings.verdict_baselines && learnings.verdict_baselines.length > 0 && (
         <section>
           <h2 className="text-sm font-bold mb-2">Verdict Performance</h2>
+          <p className="text-[11px] text-gray-500 mb-2">Tap a row to see contributing recommendations.</p>
           <div className="space-y-2">
             {learnings.verdict_baselines.map((vb) => (
               <WinRateCard
@@ -142,6 +236,13 @@ function SignalsTab({ learnings }: { learnings: LearningsResponse | null }) {
                   total: vb.total,
                   win_rate: vb.win_rate,
                 }}
+                onClick={() =>
+                  onDrill({
+                    title: `${vb.strategy.toUpperCase()} · ${vb.verdict}`,
+                    subtitle: `${vb.win_rate.toFixed(1)}% win-rate over ${vb.total} recs`,
+                    items: filterByStrategyAndVerdict(history, vb.strategy, vb.verdict),
+                  })
+                }
               />
             ))}
           </div>
@@ -153,9 +254,21 @@ function SignalsTab({ learnings }: { learnings: LearningsResponse | null }) {
           <h2 className="text-sm font-bold mb-2 flex items-center gap-1 text-emerald-700">
             <Trophy size={14} /> Top Winning Signals
           </h2>
+          <p className="text-[11px] text-gray-500 mb-2">Tap a signal to see contributing recommendations.</p>
           <div className="space-y-2">
             {learnings.top_winning_signals.map((sig, i) => (
-              <SignalRow key={i} sig={sig} variant="win" />
+              <SignalRow
+                key={i}
+                sig={sig}
+                variant="win"
+                onClick={() =>
+                  onDrill({
+                    title: `${sig.signal}${sig.strategy ? ` · ${sig.strategy.toUpperCase()}` : ""}`,
+                    subtitle: `${sig.win_rate.toFixed(0)}% win-rate over ${sig.total} obs`,
+                    items: filterBySignal(history, sig.strategy ?? null, sig.signal),
+                  })
+                }
+              />
             ))}
           </div>
         </section>
@@ -166,9 +279,21 @@ function SignalsTab({ learnings }: { learnings: LearningsResponse | null }) {
           <h2 className="text-sm font-bold mb-2 flex items-center gap-1 text-rose-700">
             <AlertCircle size={14} /> Top Losing Signals
           </h2>
+          <p className="text-[11px] text-gray-500 mb-2">Tap a signal to see contributing recommendations.</p>
           <div className="space-y-2">
             {learnings.top_losing_signals.map((sig, i) => (
-              <SignalRow key={i} sig={sig} variant="lose" />
+              <SignalRow
+                key={i}
+                sig={sig}
+                variant="lose"
+                onClick={() =>
+                  onDrill({
+                    title: `${sig.signal}${sig.strategy ? ` · ${sig.strategy.toUpperCase()}` : ""}`,
+                    subtitle: `${sig.win_rate.toFixed(0)}% win-rate over ${sig.total} obs`,
+                    items: filterBySignal(history, sig.strategy ?? null, sig.signal),
+                  })
+                }
+              />
             ))}
           </div>
         </section>
@@ -280,9 +405,11 @@ export default function LearnPage() {
   const [tab, setTab] = useState<Tab>("stats");
   const [stats, setStats] = useState<RecommendationStats | null>(null);
   const [learnings, setLearnings] = useState<LearningsResponse | null>(null);
+  const [learningsSource, setLearningsSource] = useState<"backend" | "local" | null>(null);
   const [history, setHistory] = useState<RecommendationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drill, setDrill] = useState<DrillDown | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,11 +424,31 @@ export default function LearnPage() {
         if (cancelled) return;
         setStats(s);
         setHistory(h);
+        let backendLearnings: LearningsResponse | null = null;
         try {
-          const l = await getLearnings();
-          if (!cancelled) setLearnings(l);
+          backendLearnings = await getLearnings();
         } catch {
-          // /recommendations/learnings is optional — leave as null and surface a friendly message in the Signals tab.
+          // /recommendations/learnings returns 404 in production — fall through to the local derivation.
+        }
+        if (cancelled) return;
+        const backendUseful =
+          backendLearnings != null &&
+          backendLearnings.enabled !== false &&
+          (
+            (backendLearnings.top_winning_signals?.length ?? 0) > 0 ||
+            (backendLearnings.top_losing_signals?.length ?? 0) > 0 ||
+            (backendLearnings.verdict_baselines?.length ?? 0) > 0 ||
+            (backendLearnings.suggested_adjustments?.length ?? 0) > 0
+          );
+        if (backendUseful) {
+          setLearnings(backendLearnings);
+          setLearningsSource("backend");
+        } else if (h.length > 0) {
+          setLearnings(deriveLocalLearnings(h, s));
+          setLearningsSource("local");
+        } else {
+          setLearnings(backendLearnings);
+          setLearningsSource(null);
         }
       } catch (e: unknown) {
         if (!cancelled)
@@ -315,11 +462,15 @@ export default function LearnPage() {
     };
   }, []);
 
-  const noData =
-    !loading &&
-    !error &&
-    (stats?.enabled === false || stats?.total_recommendations === 0) &&
-    (learnings == null || learnings.enabled === false);
+  const noData = useMemo(
+    () =>
+      !loading &&
+      !error &&
+      (stats?.enabled === false || stats?.total_recommendations === 0) &&
+      (learnings == null || learnings.enabled === false) &&
+      history.length === 0,
+    [loading, error, stats, learnings, history],
+  );
 
   return (
     <div className="space-y-4">
@@ -367,11 +518,73 @@ export default function LearnPage() {
       )}
       {!loading && !error && !noData && (
         <>
-          {tab === "stats" && <StatsTab stats={stats} />}
-          {tab === "signals" && <SignalsTab learnings={learnings} />}
+          {tab === "signals" && learningsSource === "local" && (
+            <div className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-md px-3 py-1.5">
+              Derived locally from your recent history (server endpoint unavailable).
+            </div>
+          )}
+          {tab === "stats" && <StatsTab stats={stats} history={history} onDrill={setDrill} />}
+          {tab === "signals" && (
+            <SignalsTab learnings={learnings} history={history} onDrill={setDrill} />
+          )}
           {tab === "history" && <HistoryTab history={history} />}
         </>
       )}
+
+      {drill && <DrillDownModal drill={drill} onClose={() => setDrill(null)} />}
     </div>
   );
 }
+
+function DrillDownModal({ drill, onClose }: { drill: DrillDown; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-label={drill.title}
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between px-4 py-3 border-b border-gray-100">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold truncate">{drill.title}</h3>
+            {drill.subtitle && (
+              <p className="text-xs text-gray-500 truncate">{drill.subtitle}</p>
+            )}
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              {drill.items.length} matching {drill.items.length === 1 ? "rec" : "recs"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-gray-400 hover:text-gray-600 p-1"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-3 overflow-y-auto">
+          {drill.items.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">
+              No recommendations matched. This can happen when the backend&apos;s
+              signal buckets don&apos;t line up with the raw stock_summary text.
+            </p>
+          ) : (
+            <HistoryTab history={drill.items} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
