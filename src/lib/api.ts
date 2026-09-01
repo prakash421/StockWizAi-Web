@@ -13,6 +13,7 @@ import type {
   RecommendationItem,
   LearningsResponse,
   EnhancedTrendingResponse,
+  DailyBriefResponse,
 } from "./types";
 import { chunkWatchlistForParallelScan } from "./watchlistChunking";
 
@@ -400,5 +401,18 @@ export async function cancelAllScans(): Promise<CancelAllResponse> {
 // ── Portfolio edit (mirrors Android editPosition) ────────────────────
 export async function editPosition(id: number, trade: TradeEntry): Promise<void> {
   await api.put(`/portfolio/update/${id}`, trade);
+}
+
+// ── Daily Brief (mirrors Android getDailyBrief) ──────────────────────
+export async function getDailyBrief(
+  userId?: string | null,
+  includeTrending: boolean = true
+): Promise<DailyBriefResponse> {
+  const params: Record<string, string> = {
+    include_trending: String(includeTrending),
+  };
+  if (userId) params.user_id = userId;
+  const { data } = await api.get<DailyBriefResponse>("/daily-brief", { params });
+  return data;
 }
 

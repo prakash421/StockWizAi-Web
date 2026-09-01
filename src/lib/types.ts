@@ -339,3 +339,71 @@ export interface LearningsResponse {
   top_losing_signals?: SignalStat[] | null;
   suggested_adjustments?: string[] | null;
 }
+
+// ── Daily Brief (mirrors DailyBriefResponse on Android) ──────────────
+export interface BriefSummary {
+  tickers_scanned?: number | null;
+  strong_buys?: number | null;
+  stop_loss_watch_count?: number | null;
+  earnings_this_week_count?: number | null;
+}
+
+export interface BriefBuySignal {
+  ticker: string;
+  kind: "stock" | "long_leaps" | "put_credit_spread" | string;
+  price?: number | null;
+  verdict?: string | null;
+  strike?: number | null;
+  expiry?: string | null;
+  premium?: number | null;
+  stop_loss?: number | null;
+  target?: number | null;
+  risk_note?: string | null;
+  // Put credit spread extras
+  short_strike?: number | null;
+  long_strike?: number | null;
+  width?: number | null;
+  credit?: number | null;
+  max_loss?: number | null;
+  roc?: number | null;
+  bt?: string | null;
+}
+
+export interface BriefStopWatch {
+  ticker: string;
+  price?: number | null;
+  stop_loss?: number | null;
+  distance_pct?: number | null;
+}
+
+export interface BriefEarnings {
+  ticker: string;
+  date?: string | null;
+}
+
+export interface BriefEtfStatus {
+  top_in?: string[] | null;
+  bottom_out?: string[] | null;
+  early_rotators?: EarlyRotator[] | null;
+  signals?: string[] | null;
+}
+
+export interface BriefTrendingItem {
+  ticker: string;
+  consecutive_days?: number | null;
+  appearances_14d?: number | null;
+  badge?: string | null;
+}
+
+export interface DailyBriefResponse {
+  generated_at?: string | null;
+  user_id?: string | null;
+  summary?: BriefSummary | null;
+  new_buy_signals?: BriefBuySignal[] | null;
+  stop_loss_watch?: BriefStopWatch[] | null;
+  earnings_this_week?: BriefEarnings[] | null;
+  etf_status?: BriefEtfStatus | null;
+  sector_rotation?: SectorRotationResponse | null;
+  trending_today?: BriefTrendingItem[] | null;
+  error?: string | null;
+}

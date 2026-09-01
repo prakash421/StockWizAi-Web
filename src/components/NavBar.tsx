@@ -12,6 +12,7 @@ import {
   GraduationCap,
   MessageSquare,
   UserCircle2,
+  Sunrise,
 } from "lucide-react";
 
 const tabs = [
@@ -22,6 +23,7 @@ const tabs = [
 ];
 
 const moreLinks = [
+  { href: "/daily-brief", icon: Sunrise, label: "Daily Brief", iconColor: "text-orange-600" },
   { href: "/sectors", icon: PieChart, label: "Sectors", iconColor: "text-cyan-600" },
   { href: "/learn", icon: GraduationCap, label: "Learn", iconColor: "text-pink-600" },
   { href: "/ask-gemini", icon: MessageSquare, label: "Ask Gemini", iconColor: "text-blue-600" },
