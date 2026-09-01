@@ -10,6 +10,7 @@ import {
   shouldAutoCrossValidate,
   toBacktestParams,
 } from "@/lib/backtestVerdict";
+import { mergeCfComboResponses } from "@/lib/cfCombo";
 import type { AiCrossValidation } from "@/lib/aiReasoning";
 import { AiCrossValidationBadge } from "@/components/AiCrossValidationBadge";
 import {
@@ -28,6 +29,7 @@ export default function AiGuruPage() {
   const [expiry, setExpiry] = useState("");
   const [expirySell, setExpirySell] = useState("");
   const [premium, setPremium] = useState("");
+  const [premiumSell, setPremiumSell] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +37,99 @@ export default function AiGuruPage() {
   const [crossVal, setCrossVal] = useState<AiCrossValidation | null>(null);
   const [crossLoading, setCrossLoading] = useState(false);
 
-  const needsSecondLeg = strategy === "Vertical" || strategy === "Diagonal";
+  const isCfCombo = strategy === "CSP-Funded Call";
+  const needsSecondLeg =
+    strategy === "Vertical" || strategy === "Diagonal" || isCfCombo;
   const sellStrategy = useMemo(
-    () => isSellStrategy(toBacktestParams(strategy).strategy),
-    [strategy]
+    () =>
+      isCfCombo
+        ? false // combo is presented as a BUY-side synthetic verdict
+        : isSellStrategy(toBacktestParams(strategy).strategy),
+    [strategy, isCfCombo]
   );
 
   const handleRun = async () => {
     if (!ticker || !strike || !expiry || !premium) return;
+    if (isCfCombo) {
+      const callStrike = parseFloat(strike);
+      const putStrike = parseFloat(strikeSell);
+      const callPrem = parseFloat(premium);
+      const putPrem = parseFloat(premiumSell);
+      if (
+        !Number.isFinite(callStrike) ||
+        !Number.isFinite(putStrike) ||
+        !Number.isFinite(callPrem) ||
+        !Number.isFinite(putPrem)
+      ) {
+        setError(
+          "CSP-Funded Call requires call strike, put strike, call premium, and put premium."
+        );
+        return;
+      }
+      if (putStrike >= callStrike) {
+        setError(
+          `Put strike (${putStrike}) should be below call strike (${callStrike}) for this combo.`
+        );
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      setResult(null);
+      setCrossVal(null);
+      try {
+        const callReq: BacktestRequest = {
+          ticker: ticker.toUpperCase(),
+          strategy: "long_leaps",
+          action: "buy",
+          strike: callStrike,
+          expiry,
+          premium: callPrem,
+        };
+        const putReq: BacktestRequest = {
+          ticker: ticker.toUpperCase(),
+          strategy: "csp",
+          action: "sell",
+          strike: putStrike,
+          expiry,
+          premium: putPrem,
+        };
+        const [callSettled, putSettled] = await Promise.allSettled([
+          runBacktest(callReq),
+          runBacktest(putReq),
+        ]);
+        const callOk =
+          callSettled.status === "fulfilled" ? callSettled.value : null;
+        const putOk =
+          putSettled.status === "fulfilled" ? putSettled.value : null;
+        if (callOk == null && putOk == null) {
+          const err =
+            callSettled.status === "rejected"
+              ? callSettled.reason
+              : putSettled.status === "rejected"
+              ? putSettled.reason
+              : new Error("Both legs failed");
+          setError(err instanceof Error ? err.message : "Both legs failed");
+        } else {
+          setResult(
+            mergeCfComboResponses(
+              callOk,
+              putOk,
+              callStrike,
+              putStrike,
+              callPrem,
+              putPrem,
+              expiry
+            )
+          );
+          setLastTicker(ticker.toUpperCase());
+        }
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Backtest failed");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -120,13 +207,13 @@ export default function AiGuruPage() {
         <input
           value={strike}
           onChange={(e) => setStrike(e.target.value)}
-          placeholder="Strike"
+          placeholder={isCfCombo ? "Call Strike (buy)" : "Strike"}
           className="border rounded-lg px-3 py-2 text-sm"
         />
         <input
           value={premium}
           onChange={(e) => setPremium(e.target.value)}
-          placeholder="Premium"
+          placeholder={isCfCombo ? "Call Premium (paid)" : "Premium"}
           className="border rounded-lg px-3 py-2 text-sm"
         />
       </div>
@@ -135,10 +222,28 @@ export default function AiGuruPage() {
         type="date"
         value={expiry}
         onChange={(e) => setExpiry(e.target.value)}
+        placeholder={isCfCombo ? "Shared Expiry (call + put)" : "Expiry"}
         className="w-full border rounded-lg px-3 py-2 text-sm"
       />
 
-      {needsSecondLeg && (
+      {isCfCombo && (
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            value={strikeSell}
+            onChange={(e) => setStrikeSell(e.target.value)}
+            placeholder="Put Strike (sell)"
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            value={premiumSell}
+            onChange={(e) => setPremiumSell(e.target.value)}
+            placeholder="Put Premium (received)"
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+      )}
+
+      {needsSecondLeg && !isCfCombo && (
         <div className="grid grid-cols-2 gap-2">
           <input
             value={strikeSell}
@@ -157,7 +262,14 @@ export default function AiGuruPage() {
 
       <button
         onClick={handleRun}
-        disabled={loading || !ticker || !strike || !expiry || !premium}
+        disabled={
+          loading ||
+          !ticker ||
+          !strike ||
+          !expiry ||
+          !premium ||
+          (isCfCombo && (!strikeSell || !premiumSell))
+        }
         className="w-full bg-indigo-600 text-white rounded-lg py-3 font-medium hover:bg-indigo-700 disabled:bg-indigo-400 transition flex items-center justify-center gap-2"
       >
         {loading ? (
@@ -179,7 +291,9 @@ export default function AiGuruPage() {
       {result && (
         <BacktestResultCard
           result={result}
-          backendStrategy={toBacktestParams(strategy).strategy}
+          backendStrategy={
+            isCfCombo ? "long_leaps" : toBacktestParams(strategy).strategy
+          }
           isSellStrategy={sellStrategy}
           crossVal={crossVal}
           crossLoading={crossLoading}

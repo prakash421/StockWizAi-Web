@@ -12,4 +12,4 @@ export const STRATEGY_OPTIONS = ["All", "CSPs", "PCSs", "Diagonals", "Verticals"
 // AI Guru (backtest) intentionally does not include "Put Credit Spread" yet —
 // the backtest endpoint needs verification for the PCS spread payload
 // before we surface a two-leg form. Scan display of PCS is unaffected.
-export const AI_GURU_STRATEGIES = ["CSP", "Sell Call", "Vertical", "Diagonal", "Long LEAPS"];
+export const AI_GURU_STRATEGIES = ["CSP", "Sell Call", "Vertical", "Diagonal", "Long LEAPS", "CSP-Funded Call"];
