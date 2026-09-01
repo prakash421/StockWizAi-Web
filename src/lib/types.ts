@@ -229,6 +229,8 @@ export interface AsyncScanStatus {
   progress?: string;
   tickers_scanned?: number;
   total_tickers?: number;
+  phase?: string | null;
+  results?: ScanResultItem[] | null;
 }
 
 // ── Sector rotation (mirrors SectorRotationResponse on Android) ──────

@@ -117,6 +117,128 @@ export interface ParallelScanProgress {
   chunkCount: number;
 }
 
+export interface SingleScanProgress {
+  scanned: number;
+  total: number;
+  /** User-facing phase label: "Queued", "Prefetching", "Scanning", "Reconnecting", "Done". */
+  phase: string;
+}
+
+// Maps backend AsyncScanStatus.phase → user-facing label. Kept in sync
+// with AsyncScanPoller.kt L285-291.
+export function scanPhaseLabel(
+  backendPhase: string | null | undefined,
+  total: number,
+): string {
+  switch (backendPhase) {
+    case "queued":
+      return "Waiting for backend (another scan in progress)…";
+    case "prefetching":
+      return `Fetching market data for ${total} symbols…`;
+    case "scanning":
+    case null:
+    case undefined:
+      return "Scanning";
+    default:
+      return "Scanning";
+  }
+}
+
+/**
+ * Preferred path: single async scan job spanning the whole watchlist.
+ * The backend `_engine_scan_lock` (main.py) serializes all scans, so
+ * client-side fan-out only wastes wall clock. This mirrors the Android
+ * MainActivity approach: send one `/scan/async` job with a comma-CSV of
+ * every ticker, poll `/scan/status/{id}` with a tiered cadence, emit
+ * partial results as they land, and fall back to synchronous `/scan`
+ * only on hard failure.
+ */
+export async function scanWatchlistSingleAsync(
+  tickers: string[],
+  strategy: string | null | undefined,
+  onResults: (results: ScanResultItem[]) => void,
+  onProgress?: (p: SingleScanProgress) => void,
+): Promise<ScanResultItem[]> {
+  const total = tickers.length;
+  const csv = tickers.join(",");
+  onProgress?.({ scanned: 0, total, phase: "Queued" });
+
+  let start: AsyncScanResponse;
+  try {
+    start = await scanAsyncStart(csv, strategy);
+  } catch {
+    // fallback: single sync call
+    onProgress?.({ scanned: 0, total, phase: "Scanning (sync fallback)…" });
+    const sync = await scanTickers(csv, strategy);
+    onResults(sync);
+    onProgress?.({ scanned: total, total, phase: "Done" });
+    return sync;
+  }
+
+  const jobId = start.job_id;
+  const jobTotal = start.total_tickers ?? total;
+  const seen = new Set<string>();
+  const combined: ScanResultItem[] = [];
+  const emit = (items: ScanResultItem[]) => {
+    let changed = false;
+    for (const it of items) {
+      if (!it || !it.ticker || seen.has(it.ticker)) continue;
+      seen.add(it.ticker);
+      combined.push(it);
+      changed = true;
+    }
+    if (changed) onResults([...combined]);
+  };
+
+  let pollCount = 0;
+  let consecutiveErrors = 0;
+  const maxPolls = 400;
+  const maxConsecutiveErrors = 8;
+  while (pollCount < maxPolls) {
+    const pollDelay = pollCount < 4 ? 500 : pollCount < 12 ? 1200 : 2500;
+    await sleep(pollDelay);
+    pollCount++;
+    let body: AsyncScanStatus | ScanResultItem[];
+    try {
+      body = await getScanStatusRaw(jobId);
+      consecutiveErrors = 0;
+    } catch (e) {
+      consecutiveErrors++;
+      onProgress?.({
+        scanned: 0,
+        total: jobTotal,
+        phase: `Reconnecting (${consecutiveErrors}/${maxConsecutiveErrors})…`,
+      });
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        // hard fail — fall back to sync scan
+        onProgress?.({ scanned: 0, total: jobTotal, phase: "Scanning (sync fallback)…" });
+        const sync = await scanTickers(csv, strategy);
+        emit(sync);
+        onProgress?.({ scanned: jobTotal, total: jobTotal, phase: "Done" });
+        return combined;
+      }
+      continue;
+    }
+    if (Array.isArray(body)) {
+      emit(body);
+      onProgress?.({ scanned: jobTotal, total: jobTotal, phase: "Done" });
+      return combined;
+    }
+    const scanned = Math.min(body.tickers_scanned ?? 0, jobTotal);
+    const phase = scanPhaseLabel(body.phase, jobTotal);
+    if (body.results && body.results.length > 0) emit(body.results);
+    onProgress?.({ scanned, total: jobTotal, phase });
+    if (body.status === "complete") {
+      onProgress?.({ scanned: jobTotal, total: jobTotal, phase: "Done" });
+      return combined;
+    }
+    if (body.status === "failed") {
+      throw new Error("Async scan failed");
+    }
+  }
+  throw new Error("Async scan timed out");
+}
+
 /**
  * Split a watchlist into N balanced chunks and fan out concurrent async
  * scan jobs, merging results progressively as each chunk completes.

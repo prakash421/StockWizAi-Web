@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { scanWatchlistParallel, scanTickers, scanTrendingEnhanced, cancelAllScans } from "@/lib/api";
+import { scanWatchlistSingleAsync, scanTickers, scanTrendingEnhanced, cancelAllScans } from "@/lib/api";
 import { STRATEGY_OPTIONS } from "@/lib/constants";
 import { useWatchlistSync } from "@/lib/useWatchlistSync";
 import type { ScanResultItem } from "@/lib/types";
@@ -150,16 +150,21 @@ export default function ScanPage() {
     setAiValidations({});
     setAiErrors({});
     const strat = strategyParam(selectedStrategy);
-    setScanProgress(`Starting watchlist scan...`);
+    setScanProgress(`Queued watchlist scan (${watchlist.length} symbols)…`);
     try {
-      const combined = await scanWatchlistParallel(
+      const combined = await scanWatchlistSingleAsync(
         watchlist,
         strat,
         (partial) => setScanResults(partial),
-        (p) =>
-          setScanProgress(
-            `Scanning ${p.scanned}/${p.total} symbols (${p.chunkCount} parallel jobs)...`
-          )
+        (p) => {
+          if (p.phase === "Done") {
+            setScanProgress("");
+          } else if (p.phase.startsWith("Waiting") || p.phase.startsWith("Fetching") || p.phase.startsWith("Reconnecting") || p.phase.startsWith("Scanning (sync")) {
+            setScanProgress(p.phase);
+          } else {
+            setScanProgress(`${p.phase} ${p.scanned}/${p.total} symbols…`);
+          }
+        }
       );
       if (combined.length === 0) {
         setScanError(
